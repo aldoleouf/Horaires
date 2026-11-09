@@ -7,7 +7,7 @@
 <header><div class="wrap"><div class="brand">Suivi du temps de travail</div><h1>Saisie horaires</h1><p>Vos journées, vos heures et votre solde au fil des semaines.</p><div class="weeknav"><button id="settingsBtn" aria-label="Réglages" title="Réglages">⚙ Réglages</button><button id="prev" aria-label="Semaine précédente">←</button><div class="weeklabel" id="weekLabel">Semaine</div><button id="next" aria-label="Semaine suivante">→</button></div></div></header>
 <main>
 <section class="stats">
-<div class="stat" role="button" tabindex="0" aria-expanded="false" aria-controls="detail-week"><div class="label">Cette semaine</div><strong id="weekBalance">—</strong><small id="workedLabel" id="detail-week" hidden>Heures réalisées</small></div>
+<div class="stat" role="button" tabindex="0" aria-expanded="false" aria-controls="workedLabel"><div class="label">Cette semaine</div><strong id="weekBalance">—</strong><small id="workedLabel" hidden>Heures réalisées</small></div>
 <div class="stat" role="button" tabindex="0" aria-expanded="false" aria-controls="detail-cumul"><div class="label">Cumul</div><strong id="carriedBalance">—</strong><small id="detail-cumul" hidden>Plafond : +2 h</small></div>
 <div class="stat" role="button" tabindex="0" aria-expanded="false" aria-controls="detail-permanent"><div class="label">Permanent</div><strong id="permanentBalance">—</strong><small id="detail-permanent" hidden>Converti en JHV par tranche de '+targetLabel()+'</small></div>
 <div class="stat" role="button" tabindex="0" aria-expanded="false" aria-controls="detail-jhv"><div class="label">JHV</div><strong id="jhvBalance">0</strong><small id="detail-jhv" hidden>Journées de '+targetLabel()+'</small></div>
