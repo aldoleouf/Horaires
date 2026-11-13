@@ -31,7 +31,72 @@
 .day.reducedDay .dayname,.day.reducedDay .daydate,.day.reducedDay .dayresult,.day.reducedDay .dayworked{color:#737d76!important}
 .day.reducedDay .field input{background:#dfe3e0;color:#737d76;border-color:#cbd1cd}
 .day.reducedDay.today{border:3px solid #aeb8b1;background:#e7eae8;box-shadow:none}
-.settingsRows{display:grid;gap:12px}.settingsDuration{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}.settingsOptions{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:end}.settingsCheck{display:flex;align-items:center;min-height:48px}.settingsCheck label{display:flex;align-items:center;white-space:nowrap;font-weight:700}.settingsOptions .field{min-width:0}.settingsOptions select{min-width:0}@media(max-width:420px){.settingsRows{gap:10px}.settingsDuration,.settingsOptions{gap:8px}.settingsDuration .field input,.settingsOptions .field select{padding:9px 7px;font-size:14px}}</style></head><body>
+.settingsRows{display:grid;gap:12px}.settingsDuration{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}.settingsOptions{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:end}.settingsCheck{display:flex;align-items:center;min-height:48px}.settingsCheck label{display:flex;align-items:center;white-space:nowrap;font-weight:700}.settingsOptions .field{min-width:0}.settingsOptions select{min-width:0}@media(max-width:420px){.settingsRows{gap:10px}.settingsDuration,.settingsOptions{gap:8px}.settingsDuration .field input,.settingsOptions .field select{padding:9px 7px;font-size:14px}}
+/* Thème floral vert, rose et soleil — version de test */
+:root{
+ --ink:#24382c;--muted:#718075;--bg:#fffaf0;--card:#fffefa;
+ --green:#39864b;--line:#dcebc9;--orange:#fff0d9;--orangeInk:#8a4b08;
+ --red:#b83c58;--shadow:0 7px 22px rgba(72,105,55,.09);
+}
+body{background:linear-gradient(180deg,#fff9ec 0%,#fffdf7 52%,#f5f9e9 100%);color:var(--ink)}
+header{
+ position:relative;overflow:hidden;color:#276b3d;
+ background:
+ radial-gradient(circle at 12% 28%,rgba(255,207,76,.22) 0 70px,transparent 71px),
+ radial-gradient(ellipse at 95% 0%,#d8edb1 0 18%,transparent 18.5%),
+ linear-gradient(135deg,#fff8e8 0%,#f1f8dc 55%,#fff0f1 100%);
+ border-bottom:1px solid #e7edcf;padding:22px 18px 24px;
+}
+header:before{content:"☀";position:absolute;right:5%;top:2px;font-size:76px;line-height:1;color:#ffc83f;opacity:.9;transform:rotate(-10deg);pointer-events:none}
+header:after{content:"✿";position:absolute;left:4%;bottom:-20px;font-size:78px;color:#f5a6b3;opacity:.35;pointer-events:none}
+header .wrap{position:relative;z-index:1}
+header .brand{color:#4c9251;letter-spacing:.12em}
+h1{color:#28733f;font-size:34px;letter-spacing:-.045em}
+header p{color:#72836e}
+.weeknav{margin-top:17px}
+.weeknav button{background:#e5f0d7;color:#347844;border:1px solid #d5e6c5}
+#settingsBtn{background:#fff0f2;color:#b84e70;border:1px solid #f5d5dc}
+.weeklabel{color:#356c43}
+.weeklabel small{color:#84947d}
+main{padding-top:18px}
+.stat,.panel,.day{border-color:#e3ebd7;box-shadow:var(--shadow);border-radius:22px}
+.stat{background:#fffefa}
+.stat:nth-child(1),.stat:nth-child(3){background:linear-gradient(145deg,#f0f8df,#fffefa)}
+.stat:nth-child(2),.stat:nth-child(4){background:linear-gradient(145deg,#fff0f2,#fffefa)}
+.stat[aria-expanded="true"]{border-color:#76ad69;box-shadow:0 0 0 3px #76ad6920}
+.stat .label{color:#68806a}
+.stat strong{color:#24382c}
+.positive{color:#36854a!important}.negative{color:#bd4c65!important}
+.panel{background:rgba(255,255,251,.94)}
+.panel h2{color:#347746}
+.hint{color:#7a887b}
+.tabs button[aria-selected="true"],button.primary{background:#39864b;color:white}
+.tabs button.outline,button.outline{background:#fff;border-color:#e1e9d9;color:#456c4d}
+.day{background:#fffefa}
+.day.today{border:3px solid #64a85c;background:#f1f8e8;box-shadow:0 0 0 3px #64a85c20}
+.day.today .dayname,.day.today .daydate{color:#347746}
+.day.absent{background:#fff4e4;border-color:#f1d8b1}
+.day.halfAbsent{background:#fff9df;border-color:#f0df9a}
+.day.reducedDay{background:#edf0ec;border-color:#d4dbd4}
+.field label{color:#718274}
+.field input,.field select{border-color:#dbe6d5;background:#fffefa;border-radius:13px}
+.field input:focus,.field select:focus{outline:3px solid #a8d39a;outline-offset:1px}
+.actions .absence{background:#ffe7c8;color:#8a4b08}
+.actions .absenceHalf{background:#fff2b8;color:#756000}
+.actions .usualButton{background:#fff0f2;border-color:#f4d6de;color:#a94d69}
+.daynote,.status{color:#7a887b}
+.rule{background:#f0f7e8;color:#55704e}
+.adjustment{background:#f4f8ed}
+.disclosure>summary:after{color:#4d8b50}
+.usualRow{border-color:#e2ead9;background:#fffefa;border-radius:16px}
+@media(max-width:650px){
+ header{padding:18px 14px 20px}
+ header:before{right:3%;top:8px;font-size:58px}
+ h1{font-size:30px}
+ .stat,.panel,.day{border-radius:18px}
+}
+
+</style></head><body>
 <header><div class="wrap"><div class="brand">Suivi du temps de travail</div><h1>Saisie horaires</h1><p>Vos journées, vos heures et votre solde au fil des semaines.</p><div class="weeknav"><button id="settingsBtn" aria-label="Réglages" title="Réglages">⚙ Réglages</button><button id="prev" aria-label="Semaine précédente">←</button><div class="weeklabel" id="weekLabel">Semaine</div><button id="next" aria-label="Semaine suivante">→</button></div></div></header>
 <main>
 <section class="stats">
