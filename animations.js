@@ -23,7 +23,7 @@ export function setAnimations(on) {
 /* ---------- Calque des effets (pétales, coccinelle) ---------- */
 
 let layer;
-function fxLayer() {
+export function fxLayer() {
   if (!layer) {
     layer = document.createElement('div');
     layer.className = 'fxLayer';
@@ -32,7 +32,7 @@ function fxLayer() {
   }
   return layer;
 }
-const rand = (a, b) => a + Math.random() * (b - a);
+export const rand = (a, b) => a + Math.random() * (b - a);
 
 /* ---------- 51. Pétales et feuilles ---------- */
 

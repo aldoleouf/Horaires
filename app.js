@@ -9,6 +9,10 @@ import {
   motionOK, systemReducesMotion, animationsEnabled, setAnimations,
   petals, BUD_SVG, updateBud, WEATHER_HTML, updateWeather, ladybug
 } from './animations.js';
+import {
+  SHADES_HTML, ZZZ_HTML, magicHat, bee, ants, shakeFlowers,
+  listenShake, motionNeedsPermission, requestMotionPermission, initSun
+} from './farces.js';
 
 const $ = id => document.getElementById(id);
 let state = emptyState();
@@ -16,7 +20,8 @@ let activeTab = 'planning';
 let currentMonday = mondayOf(new Date());
 const currentKey = () => keyDate(currentMonday);
 let cascadeNext = true; // fait apparaître les journées en cascade au prochain rendu
-let lastShown = null;   // soldes affichés au rendu précédent, pour animer les changements
+let lastShown = null;
+let shakeAllowed = false; // iPhone : autorisation d'utiliser les mouvements du téléphone   // soldes affichés au rendu précédent, pour animer les changements
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -47,11 +52,11 @@ function toast(message, { error = false, action, onAction } = {}) {
 }
 
 /** Exécute une modification et propose de l'annuler. */
-function withUndo(message, change) {
+function withUndo(message, change, onUndo) {
   const snapshot = JSON.stringify(state);
   change();
   render();
-  toast(message, { action: 'Annuler', onAction: () => { state = normalizeState(JSON.parse(snapshot)); render(); } });
+  toast(message, { action: 'Annuler', onAction: () => { state = normalizeState(JSON.parse(snapshot)); render(); onUndo?.(); } });
 }
 
 /* ---------- Stockage ---------- */
@@ -213,7 +218,8 @@ function renderSettings(k, set) {
   $('animToggle').checked = animationsEnabled();
   $('animHint').textContent = systemReducesMotion()
     ? 'Votre appareil demande de réduire les animations : elles restent désactivées.'
-    : 'Journées en cascade, pétales, bourgeon, nuages et coccinelle.';
+    : 'Journées en cascade, pétales, bourgeon, nuages, coccinelle, abeille, fourmis… et quelques surprises.';
+  $('shakePermission').hidden = !motionNeedsPermission() || shakeAllowed;
   $('settingsScopeFrom').textContent = 'À partir de la semaine du ' + fmtDate(currentMonday, true);
   const host = $('settingsHistory');
   host.innerHTML = '';
@@ -236,12 +242,16 @@ function timeField(id, label, attrs, value, disabled, nowButton) {
 function renderDays(w, set) {
   const host = $('days');
   host.innerHTML = '';
-  const todayKey = keyDate(new Date());
+  const now = new Date(), todayKey = keyDate(now), hour = now.getHours();
+  const thisWeek = currentKey() === keyDate(mondayOf(now)), weekday = (now.getDay() + 6) % 7;
+  // Vendredi après-midi (et le week-end qui suit) : la carte du vendredi se balance en hamac.
+  const hammock = thisWeek && (weekday > 4 || (weekday === 4 && hour >= 12));
   w.days.forEach((d, i) => {
     const date = addDays(currentMonday, i), off = isReducedDay(set, i), delta = dayDelta(d, i, set);
     const isToday = keyDate(date) === todayKey, locked = off || d.absence;
     const el = document.createElement('article');
-    el.className = 'day' + (off ? ' reducedDay' : d.absence ? ' absent' : d.absHalf ? ' halfAbsent' : '') + (isToday ? ' today' : '') + (cascadeNext ? ' enter' : '');
+    el.className = 'day' + (off ? ' reducedDay' : d.absence ? ' absent' : d.absHalf ? ' halfAbsent' : '') + (isToday ? ' today' : '') + (cascadeNext ? ' enter' : '') +
+      (i === 4 && hammock && !off ? ' hammock' : '') + (i === 0 && isToday && hour < 12 && !locked ? ' yawning' : '');
     el.style.setProperty('--i', i);
     const attrs = f => 'data-i="' + i + '" data-field="' + f + '"';
     const now = f => isToday && !locked ? 'data-action="now" data-i="' + i + '" data-field="' + f + '"' : '';
@@ -257,7 +267,8 @@ function renderDays(w, set) {
             '<button type="button" class="small outline usualButton" data-action="reset" data-i="' + i + '">Horaires habituels</button>') +
         '</div>';
     }
-    el.innerHTML = '<div class="daytop"><div><span class="dayname">' + DAY_NAMES[i] + '</span><span class="daydate">' + fmtDate(date) + '</span></div>' +
+    el.innerHTML = '<div class="daytop"><div><span class="dayname">' + DAY_NAMES[i] + '</span><span class="daydate">' + fmtDate(date) + '</span>' +
+      (i === 4 && !off ? SHADES_HTML : '') + (i === 0 && isToday && hour < 12 && !locked ? ZZZ_HTML : '') + '</div>' +
       '<div class="dayresult ' + (delta > 0 ? 'positive' : delta < 0 ? 'negative' : '') + '">' + fmtMinutes(delta) + '</div></div>' +
       (isToday && !locked ? '<div class="growbar" data-i="' + i + '"></div>' : '') +
       '<div class="fields">' +
@@ -395,6 +406,11 @@ $('aldoSync').onclick = () => {
   aldo.code = $('aldoCode').value.trim().toUpperCase();
   syncConges({ quiet: false });
 };
+$('shakePermission').onclick = async () => {
+  shakeAllowed = await requestMotionPermission();
+  $('shakePermission').hidden = shakeAllowed;
+  toast(shakeAllowed ? 'Secouez le téléphone pour voir…' : 'Autorisation refusée par le téléphone.', { error: !shakeAllowed });
+};
 $('animToggle').onchange = e => {
   setAnimations(e.target.checked);
   toast(e.target.checked ? 'Animations activées.' : 'Animations désactivées.');
@@ -444,11 +460,19 @@ $('usualHoursEditor').addEventListener('change', e => {
 $('days').addEventListener('change', e => {
   const el = e.target;
   if (!el.dataset.field) return;
-  const d = ensureWeek(currentKey()).days[Number(el.dataset.i)], v = readTimeInput(el, d[el.dataset.field]);
+  const i = Number(el.dataset.i), d = ensureWeek(currentKey()).days[i], v = readTimeInput(el, d[el.dataset.field]);
   if (v === null) return;
+  const set = settingsFor(state, currentKey()), before = dayDelta(d, i, set);
   d[el.dataset.field] = v;
   render();
+  // Journée qui gagne du temps en positif : une abeille en porte le pollen au permanent.
+  const after = dayDelta(d, i, set);
+  if (after > 0 && after > before) beeToPermanent($('days').children[i]);
 });
+
+function beeToPermanent(card) {
+  bee(card?.querySelector('.dayresult'), $('permanentBalance').closest('.stat').querySelector('.budWrap'));
+}
 
 $('days').addEventListener('click', e => {
   const b = e.target.closest('button[data-action]');
@@ -475,9 +499,13 @@ $('days').addEventListener('click', e => {
       d.absence = false;
       d.absHalf = false;
       break;
-    case 'reset':
+    case 'reset': {
       Object.assign(d, freshDay(i));
-      break;
+      render();
+      const card = $('days').children[i];
+      magicHat(card.querySelector('[data-action=reset]'), [...card.querySelectorAll('.fields input')]);
+      return;
+    }
     case 'now': {
       if (b.disabled) return;
       b.disabled = true; // un seul trajet de coccinelle à la fois
@@ -584,12 +612,19 @@ $('adjustments').addEventListener('click', e => {
   if (b) withUndo('Régularisation supprimée.', () => { state.adjustments = state.adjustments.filter(a => a.id !== b.dataset.remove); });
 });
 
-$('resetWeek').onclick = () => withUndo('Semaine vidée : horaires habituels rétablis et régularisations supprimées.', () => {
-  const k = currentKey();
-  state.weeks[k] = { days: [0, 1, 2, 3, 4].map(freshDay) };
-  applyCongesToWeek(k);
-  state.adjustments = state.adjustments.filter(a => a.week !== k);
-});
+$('resetWeek').onclick = () => {
+  // Les fourmis emportent les horaires de la semaine… et les rapportent si on annule.
+  const k = currentKey(), labels = [];
+  ensureWeek(k).days.forEach(d => { if (!d.absence) labels.push(d.start, d.end); });
+  state.adjustments.filter(a => a.week === k).forEach(a => labels.push(a.label.slice(0, 12)));
+  const load = labels.slice(0, 12);
+  withUndo('Semaine vidée : horaires habituels rétablis et régularisations supprimées.', () => {
+    state.weeks[k] = { days: [0, 1, 2, 3, 4].map(freshDay) };
+    applyCongesToWeek(k);
+    state.adjustments = state.adjustments.filter(a => a.week !== k);
+  }, () => ants(load.slice().reverse(), true));
+  ants(load);
+};
 
 $('exportBtn').onclick = () => {
   const blob = new Blob([JSON.stringify({ version: 3, exportedAt: new Date().toISOString(), state }, null, 2)], { type: 'application/json' });
@@ -621,12 +656,20 @@ $('importFile').onchange = async e => {
 document.querySelectorAll('.stat').forEach(card => card.insertAdjacentHTML('beforeend', WEATHER_HTML));
 $('permanentBalance').closest('.stat').insertAdjacentHTML('beforeend', '<span class="budWrap">' + BUD_SVG + '</span>');
 
+initSun($('sunDeco'));
+listenShake(shakeFlowers);
+
 load();
 if (aldo.enabled) applyConges();
 render();
 syncConges();
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncConges(); });
 scrollToToday();
+// Au démarrage, une abeille butine une journée positive de la semaine.
+setTimeout(() => {
+  const positive = [...document.querySelectorAll('#days .day .dayresult.positive')];
+  if (positive.length) beeToPermanent(positive[Math.floor(Math.random() * positive.length)].closest('.day'));
+}, 1600);
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
