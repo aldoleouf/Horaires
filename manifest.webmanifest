@@ -1,0 +1,16 @@
+{
+  "name": "Saisie horaires",
+  "short_name": "Horaires",
+  "description": "Suivi du temps de travail : journées, cumul, permanent et JHV.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fffaf0",
+  "theme_color": "#fff8e8",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
