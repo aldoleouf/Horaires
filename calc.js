@@ -107,7 +107,10 @@ function normalizeHours(h, i) {
 }
 
 function normalizeDay(d, i) {
-  return { ...normalizeHours(d, i), absence: !!(d && d.absence), absHalf: !!(d && d.absHalf) };
+  const day = { ...normalizeHours(d, i), absence: !!(d && d.absence), absHalf: !!(d && d.absHalf) };
+  // Absence posée automatiquement depuis l'app Congés (« Je suis Aldo »).
+  if (d && (d.conges === 'full' || d.conges === 'half')) day.conges = d.conges;
+  return day;
 }
 
 /**
@@ -233,4 +236,27 @@ export function computeThrough(state, k) {
     }
   }
   return { cumul, permanent, jhv };
+}
+
+/* ---------- Congés (app Congés d'Aldo) ---------- */
+
+/**
+ * Transforme une liste de congés de l'app Congés en journées d'absence.
+ * Renvoie une Map « AAAA-MM-JJ » → 'full' | 'half', jours ouvrés seulement.
+ * Les demandes refusées sont ignorées ; deux demi-journées le même jour font une journée.
+ */
+export function congesDays(leaves) {
+  const out = new Map();
+  for (const l of Array.isArray(leaves) ? leaves : []) {
+    if (!l || l.status === 'refused' || !/^\d{4}-\d{2}-\d{2}$/.test(l.start) || !/^\d{4}-\d{2}-\d{2}$/.test(l.end) || l.end < l.start) continue;
+    for (let d = parseKey(l.start), n = 0; keyDate(d) <= l.end && n < 400; d = addDays(d, 1), n++) {
+      const dow = d.getDay();
+      if (dow === 0 || dow === 6) continue;
+      const k = keyDate(d);
+      const half = (k === l.start && l.startPart === 'pm') || (k === l.end && l.endPart === 'am');
+      const prev = out.get(k);
+      out.set(k, half && prev !== 'half' && prev !== 'full' ? 'half' : 'full');
+    }
+  }
+  return out;
 }

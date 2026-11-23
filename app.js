@@ -3,7 +3,7 @@ import {
   STORAGE_KEY, FIRST_WEEK, DAY_NAMES, isValidTime,
   mondayOf, keyDate, parseKey, addDays, fmtDate, fmtMinutes, fmtJhv, targetLabel, minutesToTime, timeToMinutes,
   emptyState, normalizeState, settingsFor, setSettingsFrom, removeSettings,
-  isReducedDay, dayWorked, dayDelta, weekDelta, weekTarget, computeThrough
+  isReducedDay, dayWorked, dayDelta, weekDelta, weekTarget, computeThrough, congesDays
 } from './calc.js';
 
 const $ = id => document.getElementById(id);
@@ -78,8 +78,101 @@ function load() {
 function freshDay(i) { return { ...state.usualHours[i], absence: false, absHalf: false }; }
 
 function ensureWeek(k) {
-  if (!state.weeks[k]) state.weeks[k] = { days: [0, 1, 2, 3, 4].map(freshDay) };
+  if (!state.weeks[k]) {
+    state.weeks[k] = { days: [0, 1, 2, 3, 4].map(freshDay) };
+    applyCongesToWeek(k);
+  }
   return state.weeks[k];
+}
+
+/* ---------- Lien avec l'app Congés (« Je suis Aldo ») ---------- */
+// Réglage propre à cet appareil, hors des données d'horaires : seul Aldo le coche.
+// Les journées marquées automatiquement portent `conges: 'full' | 'half'`, ce qui
+// permet de les retirer si le congé est supprimé ou si la case est décochée.
+
+const ALDO_KEY = 'horaires-aldo';
+const CONGES_API = 'https://conges-tan.vercel.app/api/horaires';
+let aldo = { enabled: false, code: '', leaves: [], updatedAt: '', checkedAt: '', error: '', dismissed: [] };
+try { aldo = { ...aldo, ...JSON.parse(localStorage.getItem(ALDO_KEY) || '{}') }; } catch (e) {}
+let congesMap = new Map();
+
+function saveAldo() {
+  try { localStorage.setItem(ALDO_KEY, JSON.stringify(aldo)); } catch (e) {}
+}
+
+function refreshCongesMap() {
+  congesMap = aldo.enabled ? congesDays(aldo.leaves) : new Map();
+  // Oublie les refus d'absence devenus sans objet (congé supprimé ou modifié).
+  aldo.dismissed = aldo.dismissed.filter(x => congesMap.get(x.split('|')[0]) === x.split('|')[1]);
+}
+
+/** Met une journée en accord avec les congés ; renvoie true si elle a changé. */
+function applyCongesToDay(d, date) {
+  let want = congesMap.get(date) || null;
+  if (want && aldo.dismissed.includes(date + '|' + want)) want = null;
+  const had = d.conges || null;
+  if (had === want) return false;
+  if (had) {
+    // Retire l'absence posée automatiquement.
+    if (had === 'full') d.absence = false; else d.absHalf = false;
+    delete d.conges;
+  }
+  if (!want) return !!had;
+  if (d.absence || (want === 'half' && d.absHalf)) return !!had; // absence déjà saisie à la main : on n'y touche pas
+  if (want === 'full') { d.absence = true; d.absHalf = false; } else d.absHalf = true;
+  d.conges = want;
+  return true;
+}
+
+function applyCongesToWeek(k) {
+  const monday = parseKey(k);
+  let changed = false;
+  state.weeks[k].days.forEach((d, i) => { if (applyCongesToDay(d, keyDate(addDays(monday, i)))) changed = true; });
+  return changed;
+}
+
+/** Applique les congés aux semaines déjà existantes (les suivantes le seront à leur création). */
+function applyConges() {
+  refreshCongesMap();
+  let changed = false;
+  for (const k of Object.keys(state.weeks)) if (applyCongesToWeek(k)) changed = true;
+  saveAldo();
+  return changed;
+}
+
+async function syncConges({ quiet = true } = {}) {
+  if (!aldo.enabled) return;
+  const code = aldo.code.trim().toUpperCase();
+  if (!code) { renderAldo(); return; }
+  try {
+    const r = await fetch(CONGES_API, { headers: { 'X-Sync-Code': code }, cache: 'no-store' });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(r.status === 404 ? 'code inconnu : activez le lien dans l’app Congés et vérifiez le code' : data.error || 'erreur ' + r.status);
+    if (!aldo.enabled || aldo.code.trim().toUpperCase() !== code) return; // réglage changé entre-temps
+    aldo.leaves = Array.isArray(data.leaves) ? data.leaves : [];
+    aldo.updatedAt = data.updatedAt || '';
+    aldo.checkedAt = new Date().toISOString();
+    aldo.error = '';
+    const changed = applyConges();
+    render();
+    if (!quiet || changed) toast(changed ? 'Planning mis à jour avec vos congés.' : 'Congés synchronisés : rien de nouveau.');
+  } catch (e) {
+    aldo.error = e.message === 'Failed to fetch' ? 'hors connexion' : e.message;
+    saveAldo();
+    renderAldo();
+    if (!quiet) toast('Synchronisation impossible : ' + aldo.error + '.', { error: true });
+  }
+}
+
+function renderAldo() {
+  $('isAldo').checked = aldo.enabled;
+  $('aldoBox').hidden = !aldo.enabled;
+  if (document.activeElement !== $('aldoCode')) $('aldoCode').value = aldo.code;
+  const when = iso => new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+  $('aldoStatus').textContent = !aldo.code.trim() ? 'Saisissez le code pour lier les deux applications.'
+    : aldo.error ? '⚠️ Dernière synchronisation échouée : ' + aldo.error + '.' + (aldo.checkedAt ? ' Congés connus au ' + when(aldo.checkedAt) + '.' : '')
+    : aldo.checkedAt ? 'Synchronisé le ' + when(aldo.checkedAt) + ' · ' + congesMap.size + ' jour(s) de congé connus.'
+    : 'Synchronisation en cours…';
 }
 
 /* ---------- Rendu ---------- */
@@ -143,7 +236,8 @@ function renderDays(w, set) {
     let actions;
     if (off) actions = '<div class="daynote">Journée non travaillée · 80 %</div>';
     else {
-      actions = '<div class="actions"><div class="dayworked">' + fmtMinutes(dayWorked(d, i, set)) + ' / ' + targetLabel(set.targetMinutes) + '</div>' +
+      actions = (d.conges ? '<div class="daynote conges">🌴 ' + (d.conges === 'half' ? 'Demi-journée de congé' : 'Congé') + ' · app Congés</div>' : '') +
+        '<div class="actions"><div class="dayworked">' + fmtMinutes(dayWorked(d, i, set)) + ' / ' + targetLabel(set.targetMinutes) + '</div>' +
         (d.absence || d.absHalf
           ? '<button type="button" class="small absence" data-action="cancelAbsence" data-i="' + i + '">Annuler absence</button>'
           : '<button type="button" class="small absence" data-action="absence" data-i="' + i + '">Abs</button>' +
@@ -200,6 +294,7 @@ function render() {
   renderTabs();
   if (activeTab === 'usual') renderUsualHours();
   renderSettings(k, set);
+  renderAldo();
 
   const friday = addDays(currentMonday, 4);
   $('weekLabel').innerHTML = fmtDate(currentMonday) + ' – ' + fmtDate(friday) + '<small>' + (k === keyDate(mondayOf(new Date())) ? 'Semaine actuelle' : k) + '</small>';
@@ -235,6 +330,27 @@ $('closeSettings').onclick = () => { activeTab = 'planning'; render(); };
 $('tabPlanning').onclick = () => { activeTab = 'planning'; render(); };
 $('tabUsual').onclick = () => { activeTab = 'usual'; render(); };
 $('is80Percent').onchange = e => { $('reducedDay').disabled = !e.target.checked; };
+$('isAldo').onchange = e => {
+  aldo.enabled = e.target.checked;
+  aldo.error = '';
+  applyConges(); // décoché : retire toutes les absences posées automatiquement
+  render();
+  if (aldo.enabled) syncConges();
+  else toast('Lien avec l’app Congés désactivé : les absences automatiques ont été retirées.');
+};
+$('aldoCode').onchange = e => {
+  aldo.code = e.target.value.trim().toUpperCase();
+  aldo.checkedAt = '';
+  aldo.leaves = [];
+  aldo.error = '';
+  applyConges();
+  render();
+  syncConges({ quiet: false });
+};
+$('aldoSync').onclick = () => {
+  aldo.code = $('aldoCode').value.trim().toUpperCase();
+  syncConges({ quiet: false });
+};
 $('defaultSettings').onclick = () => { $('targetHours').value = 7; $('targetMinutes').value = 42; };
 
 $('saveSettings').onclick = () => {
@@ -303,6 +419,11 @@ $('days').addEventListener('click', e => {
       d.absence = false;
       break;
     case 'cancelAbsence':
+      if (d.conges) {
+        aldo.dismissed.push(keyDate(addDays(currentMonday, i)) + '|' + d.conges);
+        saveAldo();
+        delete d.conges;
+      }
       d.absence = false;
       d.absHalf = false;
       break;
@@ -359,6 +480,7 @@ $('adjustments').addEventListener('click', e => {
 $('resetWeek').onclick = () => withUndo('Semaine vidée : horaires habituels rétablis et régularisations supprimées.', () => {
   const k = currentKey();
   state.weeks[k] = { days: [0, 1, 2, 3, 4].map(freshDay) };
+  applyCongesToWeek(k);
   state.adjustments = state.adjustments.filter(a => a.week !== k);
 });
 
@@ -384,13 +506,16 @@ $('importFile').onchange = async e => {
     toast('Fichier invalide ou format non reconnu.', { error: true });
     return;
   }
-  withUndo('Sauvegarde importée : les données précédentes ont été remplacées.', () => { state = imported; });
+  withUndo('Sauvegarde importée : les données précédentes ont été remplacées.', () => { state = imported; applyConges(); });
 };
 
 /* ---------- Démarrage ---------- */
 
 load();
+if (aldo.enabled) applyConges();
 render();
+syncConges();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncConges(); });
 if ((new Date().getDay() + 6) % 7 < 5) {
   requestAnimationFrame(() => document.querySelector('.day.today')?.scrollIntoView({ block: 'center', behavior: 'instant' }));
 }
