@@ -5,12 +5,18 @@ import {
   emptyState, normalizeState, settingsFor, setSettingsFrom, removeSettings, copyWeekHours,
   isReducedDay, dayWorked, dayDelta, weekDelta, weekTarget, computeThrough, congesDays
 } from './calc.js';
+import {
+  motionOK, systemReducesMotion, animationsEnabled, setAnimations,
+  petals, BUD_SVG, updateBud, WEATHER_HTML, updateWeather, ladybug
+} from './animations.js';
 
 const $ = id => document.getElementById(id);
 let state = emptyState();
 let activeTab = 'planning';
 let currentMonday = mondayOf(new Date());
 const currentKey = () => keyDate(currentMonday);
+let cascadeNext = true; // fait apparaître les journées en cascade au prochain rendu
+let lastShown = null;   // soldes affichés au rendu précédent, pour animer les changements
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -177,10 +183,11 @@ function renderAldo() {
 
 /* ---------- Rendu ---------- */
 
-function setBalance(id, n, text = fmtMinutes(n)) {
+function setBalance(id, n, text = fmtMinutes(n), prev) {
   const el = $(id);
   el.textContent = text;
   el.className = n > 0 ? 'positive' : n < 0 ? 'negative' : '';
+  updateWeather(el.closest('.stat'), n, prev);
 }
 
 function settingsSummary(s) {
@@ -203,6 +210,10 @@ function renderSettings(k, set) {
   $('is80Percent').checked = set.is80Percent;
   $('reducedDay').value = String(set.reducedDay);
   $('reducedDay').disabled = !set.is80Percent;
+  $('animToggle').checked = animationsEnabled();
+  $('animHint').textContent = systemReducesMotion()
+    ? 'Votre appareil demande de réduire les animations : elles restent désactivées.'
+    : 'Journées en cascade, pétales, bourgeon, nuages et coccinelle.';
   $('settingsScopeFrom').textContent = 'À partir de la semaine du ' + fmtDate(currentMonday, true);
   const host = $('settingsHistory');
   host.innerHTML = '';
@@ -230,7 +241,8 @@ function renderDays(w, set) {
     const date = addDays(currentMonday, i), off = isReducedDay(set, i), delta = dayDelta(d, i, set);
     const isToday = keyDate(date) === todayKey, locked = off || d.absence;
     const el = document.createElement('article');
-    el.className = 'day' + (off ? ' reducedDay' : d.absence ? ' absent' : d.absHalf ? ' halfAbsent' : '') + (isToday ? ' today' : '');
+    el.className = 'day' + (off ? ' reducedDay' : d.absence ? ' absent' : d.absHalf ? ' halfAbsent' : '') + (isToday ? ' today' : '') + (cascadeNext ? ' enter' : '');
+    el.style.setProperty('--i', i);
     const attrs = f => 'data-i="' + i + '" data-field="' + f + '"';
     const now = f => isToday && !locked ? 'data-action="now" data-i="' + i + '" data-field="' + f + '"' : '';
     let actions;
@@ -247,6 +259,7 @@ function renderDays(w, set) {
     }
     el.innerHTML = '<div class="daytop"><div><span class="dayname">' + DAY_NAMES[i] + '</span><span class="daydate">' + fmtDate(date) + '</span></div>' +
       '<div class="dayresult ' + (delta > 0 ? 'positive' : delta < 0 ? 'negative' : '') + '">' + fmtMinutes(delta) + '</div></div>' +
+      (isToday && !locked ? '<div class="growbar" data-i="' + i + '"></div>' : '') +
       '<div class="fields">' +
       timeField('day' + i + '-start', 'Début', attrs('start'), off ? '12:00' : d.start, locked, now('start')) +
       timeField('day' + i + '-end', 'Fin', attrs('end'), off ? '12:00' : d.end, locked, now('end')) +
@@ -254,7 +267,31 @@ function renderDays(w, set) {
       '</div>' + actions;
     host.append(el);
   });
+  cascadeNext = false;
+  updateGrowbar();
 }
+
+/* Tige qui pousse de l'heure de début vers l'heure de fin sur la journée du jour */
+function updateGrowbar() {
+  const bar = document.querySelector('.growbar');
+  if (!bar) return;
+  const d = state.weeks[currentKey()].days[Number(bar.dataset.i)], n = new Date();
+  const now = n.getHours() * 60 + n.getMinutes(), start = timeToMinutes(d.start);
+  let end = timeToMinutes(d.end);
+  if (end <= start) end += 1440;
+  const ratio = Math.max(0, Math.min(1, (now - start) / (end - start)));
+  const text = now < start ? 'Début à ' + d.start
+    : ratio >= 1 ? 'Journée terminée'
+    : 'Encore ' + fmtMinutes(end - now).replace('+', '') + ' · fin ' + d.end;
+  bar.classList.toggle('done', ratio >= 1);
+  bar.title = 'Journée accomplie à ' + Math.round(ratio * 100) + ' %';
+  if (!bar.firstChild) {
+    bar.innerHTML = '<div class="growtrack" aria-hidden="true"><div class="growstem"></div></div><span class="growflower" aria-hidden="true">🌼</span><span class="growtext"></span>';
+  }
+  bar.querySelector('.growstem').style.width = (ratio * 100).toFixed(1) + '%';
+  bar.querySelector('.growtext').textContent = text;
+}
+setInterval(updateGrowbar, 30000);
 
 function renderUsualHours() {
   const host = $('usualHoursEditor');
@@ -302,12 +339,16 @@ function render() {
     : '<button type="button" class="todayBtn" id="todayBtn">↺ Aujourd’hui</button>');
   renderCopyHint();
 
-  const worked = w.days.reduce((s, d, i) => s + dayWorked(d, i, set), 0), bal = computeThrough(state, k);
-  setBalance('weekBalance', weekDelta(state, k));
+  const worked = w.days.reduce((s, d, i) => s + dayWorked(d, i, set), 0), bal = computeThrough(state, k), wd = weekDelta(state, k);
+  // Les animations de changement ne jouent que si l'on reste sur la même semaine.
+  const prev = lastShown && lastShown.k === k ? lastShown : {};
+  setBalance('weekBalance', wd, undefined, prev.week);
   $('workedLabel').textContent = 'Réalisé ' + fmtMinutes(worked) + ' / objectif ' + fmtMinutes(weekTarget(set));
-  setBalance('carriedBalance', bal.cumul);
-  setBalance('permanentBalance', bal.permanent);
-  setBalance('jhvBalance', bal.jhv, fmtJhv(bal.jhv));
+  setBalance('carriedBalance', bal.cumul, undefined, prev.cumul);
+  setBalance('permanentBalance', bal.permanent, undefined, prev.permanent);
+  setBalance('jhvBalance', bal.jhv, fmtJhv(bal.jhv), prev.jhv);
+  updateBud($('permanentBalance').closest('.stat'), bal.permanent / set.targetMinutes, prev.jhv !== undefined && bal.jhv > prev.jhv);
+  lastShown = { k, week: wd, cumul: bal.cumul, permanent: bal.permanent, jhv: bal.jhv };
   $('detail-permanent').textContent = 'Converti en JHV par tranche de ' + targetLabel(set.targetMinutes);
   $('detail-jhv').textContent = 'Journées de ' + targetLabel(set.targetMinutes);
 
@@ -330,7 +371,7 @@ document.querySelectorAll('.stat[role="button"]').forEach(card => {
 
 $('settingsBtn').onclick = () => { activeTab = activeTab === 'settings' ? 'planning' : 'settings'; render(); };
 $('closeSettings').onclick = () => { activeTab = 'planning'; render(); };
-$('tabPlanning').onclick = () => { activeTab = 'planning'; render(); };
+$('tabPlanning').onclick = () => { cascadeNext = activeTab !== 'planning'; activeTab = 'planning'; render(); };
 $('tabUsual').onclick = () => { activeTab = 'usual'; render(); };
 $('is80Percent').onchange = e => { $('reducedDay').disabled = !e.target.checked; };
 $('isAldo').onchange = e => {
@@ -353,6 +394,10 @@ $('aldoCode').onchange = e => {
 $('aldoSync').onclick = () => {
   aldo.code = $('aldoCode').value.trim().toUpperCase();
   syncConges({ quiet: false });
+};
+$('animToggle').onchange = e => {
+  setAnimations(e.target.checked);
+  toast(e.target.checked ? 'Animations activées.' : 'Animations désactivées.');
 };
 $('defaultSettings').onclick = () => { $('targetHours').value = 7; $('targetMinutes').value = 42; };
 
@@ -434,19 +479,29 @@ $('days').addEventListener('click', e => {
       Object.assign(d, freshDay(i));
       break;
     case 'now': {
-      const n = new Date();
-      d[b.dataset.field] = minutesToTime(n.getHours() * 60 + n.getMinutes());
-      render();
-      $('day' + i + '-' + b.dataset.field).focus();
-      toast((b.dataset.field === 'start' ? 'Début' : 'Fin') + ' réglé sur ' + d[b.dataset.field] + '.');
+      if (b.disabled) return;
+      b.disabled = true; // un seul trajet de coccinelle à la fois
+      const field = b.dataset.field, id = 'day' + i + '-' + field;
+      ladybug(b, $(id), () => {
+        const n = new Date();
+        d[field] = minutesToTime(n.getHours() * 60 + n.getMinutes());
+        render();
+        const input = $(id);
+        input.focus();
+        if (motionOK()) input.classList.add('justSet');
+        toast((field === 'start' ? 'Début' : 'Fin') + ' réglé sur ' + d[field] + '.');
+      });
       return;
     }
   }
   render();
+  if (b.dataset.action === 'absence' || b.dataset.action === 'absenceHalf') {
+    petals($('days').children[i], b.dataset.action === 'absence' ? 'absence' : 'half');
+  }
 });
 
-$('prev').onclick = () => { currentMonday = addDays(currentMonday, -7); render(); };
-$('next').onclick = () => { currentMonday = addDays(currentMonday, 7); render(); };
+$('prev').onclick = () => { currentMonday = addDays(currentMonday, -7); cascadeNext = true; render(); };
+$('next').onclick = () => { currentMonday = addDays(currentMonday, 7); cascadeNext = true; render(); };
 
 function scrollToToday() {
   requestAnimationFrame(() => document.querySelector('.day.today')?.scrollIntoView({ block: 'center', behavior: 'instant' }));
@@ -455,6 +510,7 @@ $('weekLabel').addEventListener('click', e => {
   if (!e.target.closest('#todayBtn')) return;
   currentMonday = mondayOf(new Date());
   activeTab = 'planning';
+  cascadeNext = true;
   render();
   $('next').focus();
   scrollToToday();
@@ -561,6 +617,9 @@ $('importFile').onchange = async e => {
 };
 
 /* ---------- Démarrage ---------- */
+
+document.querySelectorAll('.stat').forEach(card => card.insertAdjacentHTML('beforeend', WEATHER_HTML));
+$('permanentBalance').closest('.stat').insertAdjacentHTML('beforeend', '<span class="budWrap">' + BUD_SVG + '</span>');
 
 load();
 if (aldo.enabled) applyConges();

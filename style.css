@@ -201,3 +201,68 @@ main { padding: 18px 14px 48px }
   .settingsDuration, .settingsOptions { gap: 8px }
   .settingsDuration .field input, .settingsOptions .field select { padding: 9px 7px; font-size: 14px }
 }
+
+/* ---------- Animations ---------- */
+/* Tout est coupé si l'appareil demande moins d'animations ou si l'utilisateur les désactive. */
+.noMotion *, .noMotion *::before, .noMotion *::after { animation: none !important; transition: none !important }
+
+.fxLayer { position: fixed; inset: 0; z-index: 20; overflow: hidden; pointer-events: none }
+
+/* 46. Journées en cascade */
+.day.enter { animation: dayIn .5s cubic-bezier(.2, .8, .3, 1) both; animation-delay: calc(var(--i) * 70ms) }
+@keyframes dayIn { from { opacity: 0; transform: translateY(16px) scale(.98) } to { opacity: 1; transform: none } }
+
+/* 51. Pétales et feuilles */
+.petal { position: fixed; opacity: 0; will-change: transform }
+.petal.leaf { border-radius: 0 100% 0 100% }
+.petal.round { border-radius: 80% 10% 80% 10% }
+
+/* 53. Bourgeon du permanent */
+.stat { position: relative; overflow: hidden }
+.budWrap { position: absolute; right: 8px; bottom: 0; width: 34px; height: 42px; pointer-events: none }
+.bud { display: block; width: 100%; height: 100%; overflow: visible; transform-origin: 50% 100%; transform: scale(calc(.45 + var(--grow, 0) * .55)); transition: transform .9s cubic-bezier(.3, 1.5, .5, 1) }
+.bud .budHead { transition: opacity .3s }
+.bud .flowerHead { opacity: 0; transform-origin: 20px 15.5px }
+.stat.blooming { animation: cardGlow 2.6s ease-out }
+.stat.blooming .budHead { opacity: 0 }
+.stat.blooming .flowerHead { animation: bloom 2.6s ease-out }
+@keyframes bloom {
+  0% { opacity: 1; transform: scale(0) rotate(-80deg) }
+  30% { opacity: 1; transform: scale(1.3) rotate(0) }
+  80% { opacity: 1; transform: scale(1.1) rotate(20deg) }
+  100% { opacity: 0; transform: scale(1) rotate(30deg) }
+}
+@keyframes cardGlow { 20% { box-shadow: 0 0 0 4px #f5a6b366 } }
+
+/* 55. Tige de la journée en cours */
+.growbar { display: flex; align-items: center; gap: 8px; margin: -2px 0 10px }
+.growtrack { position: relative; flex: 1; height: 8px; border-radius: 99px; background: #e3efd6 }
+.growstem { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 99px; background: linear-gradient(90deg, #a9d38f, #4f9a4c); transition: width 1.2s ease }
+.growstem::after { content: ""; position: absolute; right: -3px; top: -8px; width: 11px; height: 8px; border-radius: 0 100% 0 100%; background: #5ea852; transform: rotate(-20deg); transform-origin: 0 100%; animation: leafWave 2.4s ease-in-out infinite }
+@keyframes leafWave { 50% { transform: rotate(-40deg) } }
+.growflower { font-size: 18px; line-height: 1; opacity: .35; filter: grayscale(.6); transform: scale(.7); transition: .6s }
+.growbar.done .growflower { opacity: 1; filter: none; transform: scale(1); animation: sway 3s ease-in-out infinite }
+@keyframes sway { 0%, 100% { transform: rotate(-8deg) } 50% { transform: rotate(10deg) } }
+.growtext { font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums }
+
+/* 60. Nuage et soleil des compteurs */
+.weather { position: absolute; top: 8px; right: 10px; width: 34px; height: 24px; pointer-events: none }
+.weather svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity .5s }
+.weather .sun { inset: -6px 0 auto auto; width: 30px; height: 30px }
+.stat.cloudy .cloud { opacity: .95; animation: drift 5s ease-in-out infinite alternate }
+@keyframes drift { from { transform: translateX(6px) } to { transform: translateX(-8px) } }
+.stat.sunburst .cloud { opacity: .95; animation: cloudAway .9s ease-in forwards }
+.stat.sunburst .sun { animation: sunPop 1.9s ease-out }
+@keyframes cloudAway { to { opacity: 0; transform: translate(46px, -8px) } }
+@keyframes sunPop {
+  0% { opacity: 0; transform: scale(.2) rotate(-90deg) }
+  25% { opacity: 1; transform: scale(1.2) rotate(0) }
+  75% { opacity: 1; transform: scale(1) rotate(45deg) }
+  100% { opacity: 0; transform: scale(.9) rotate(70deg) }
+}
+
+/* 61. Coccinelle */
+.ladybug { position: fixed; width: 22px; height: 24px; margin: -12px 0 0 -11px; will-change: transform; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .2)) }
+.ladybug svg { display: block; width: 100%; height: 100% }
+.field input.justSet { animation: justSet 1s ease-out }
+@keyframes justSet { 0% { background: #ffe9e8; box-shadow: 0 0 0 0 #e0453f88 } 100% { box-shadow: 0 0 0 12px #e0453f00 } }
