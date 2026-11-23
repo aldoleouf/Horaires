@@ -230,3 +230,58 @@ async function sunFall(sun) {
   sun.classList.add('shy');
   setTimeout(() => sun.classList.remove('shy'), 2200);
 }
+
+/* ---------- Bon week-end : un biplan tire une banderole à travers l'écran ---------- */
+
+const PLANE_SVG = `<svg class="planeBody" viewBox="0 0 74 44" aria-hidden="true">
+  <g class="prop"><ellipse cx="5" cy="23" rx="2.2" ry="13" fill="#6f6257" opacity=".55"/></g>
+  <path d="M7 19.5h5v7H7z" fill="#5a5a5a"/>
+  <path d="M12 16c10-3 36-1.5 45 2l8-9.5 3.5 1.5-4.5 13c-9 4.5-40 5.5-52 3.5z" fill="#f07a8e"/>
+  <path d="M14 22.5c12 1 30 .5 47-2" stroke="#fff" stroke-width="1.6" opacity=".7" fill="none"/>
+  <rect x="21" y="6" width="22" height="4" rx="2" fill="#ffc83f"/>
+  <rect x="19" y="29" width="26" height="4.2" rx="2.1" fill="#ffc83f"/>
+  <path d="M26 10v6M38 10v6M26 25v4M38 25v4" stroke="#6f6257" stroke-width="1.4"/>
+  <circle cx="33" cy="14" r="5.2" fill="#ffc83f"/>
+  <g stroke="#ffc83f" stroke-width="1.4" stroke-linecap="round"><path d="M33 6.2v1.6M27 9l1.1 1.1M39 9l-1.1 1.1"/></g>
+  <path d="M28.6 13h3.6c0 1.8-.7 2.8-1.8 2.8s-1.8-1-1.8-2.8zM33.6 13h3.6c0 1.8-.7 2.8-1.8 2.8s-1.8-1-1.8-2.8z" fill="#2b2b2b"/>
+  <path d="M28.5 13h8.8" stroke="#2b2b2b" stroke-width=".9"/>
+  <path d="M31 17.2c1 .9 2.4.9 3.4 0" stroke="#b5532c" stroke-width=".9" fill="none" stroke-linecap="round"/>
+  <circle cx="22" cy="35.5" r="3" fill="#3a3440"/><path d="M22 33v-3" stroke="#6f6257" stroke-width="1.4"/>
+</svg>`;
+
+let planeFlying = false;
+/** Un biplan piloté par le soleil traverse le haut de l'écran avec une banderole `message`. */
+export function weekendPlane(message, card) {
+  if (!motionOK() || planeFlying) return false;
+  planeFlying = true;
+  const plane = document.createElement('div');
+  plane.className = 'weekendPlane';
+  plane.innerHTML = PLANE_SVG + '<span class="rope"></span><span class="banner"></span>';
+  plane.querySelector('.banner').textContent = message;
+  fxLayer().append(plane);
+  // L'avion survole la carte du vendredi (ou le haut de l'écran si elle n'est pas visible).
+  const r = card?.getBoundingClientRect(), h = plane.offsetHeight;
+  const onScreen = r && r.bottom > 0 && r.top < innerHeight;
+  const y = onScreen ? r.top + Math.min(r.height * .4, 70) - h / 2 : Math.min(90, innerHeight * .12);
+  plane.style.top = Math.max(8, Math.min(innerHeight - h - 8, y)) + 'px';
+  const width = plane.offsetWidth, distance = innerWidth + width + 40, duration = Math.max(5200, distance * 7);
+  // Le biplan entre par la droite, ondule et ressort par la gauche.
+  const frames = [];
+  for (let s = 0; s <= 12; s++) {
+    const t = s / 12;
+    frames.push({ transform: `translate(${innerWidth + 20 - distance * t}px, ${Math.sin(t * Math.PI * 3) * 14}px) rotate(${Math.cos(t * Math.PI * 3) * -3}deg)` });
+  }
+  plane.animate(frames, { duration, easing: 'linear', fill: 'both' }).onfinish = () => { plane.remove(); planeFlying = false; };
+  // Au passage au milieu de l'écran : pluie de pétales et la carte du vendredi saute de joie.
+  setTimeout(() => {
+    petals(plane.querySelector('.banner'), 'bloom', 26);
+    petals(plane.querySelector('.banner'), 'half', 10);
+    if (card) {
+      card.classList.remove('cheers');
+      void card.offsetWidth;
+      card.classList.add('cheers');
+      setTimeout(() => card.classList.remove('cheers'), 1200);
+    }
+  }, duration * (innerWidth / 2 + width * .6) / distance);
+  return true;
+}
