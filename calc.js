@@ -185,6 +185,36 @@ export function removeSettings(state, from) {
   state.settingsHistory = state.settingsHistory.filter(s => s.from !== from);
 }
 
+/* ---------- Copie d'une semaine ---------- */
+
+/**
+ * Copie les horaires (début, fin, pause) de la semaine `fromKey` vers les horaires
+ * habituels (`destination` = 'usual') ou vers les `count` semaines suivantes ('future').
+ * Les journées d'absence et le jour non travaillé de la semaine source ne sont pas copiés ;
+ * les absences déjà posées sur les semaines suivantes sont conservées.
+ * Renvoie le nombre de journées copiées par semaine.
+ */
+export function copyWeekHours(state, fromKey, destination, count = 0) {
+  const src = state.weeks[fromKey];
+  if (!src) return 0;
+  const set = settingsFor(state, fromKey);
+  const hours = src.days.map((d, i) => d.absence || d.absHalf || isReducedDay(set, i) ? null : { start: d.start, end: d.end, break: d.break });
+  if (destination === 'usual') {
+    hours.forEach((h, i) => { if (h) state.usualHours[i] = { ...h }; });
+  } else {
+    const monday = parseKey(fromKey);
+    for (let w = 1; w <= count; w++) {
+      const k = keyDate(addDays(monday, 7 * w));
+      if (!state.weeks[k]) state.weeks[k] = { days: state.usualHours.map(h => ({ ...h, absence: false, absHalf: false })) };
+      hours.forEach((h, i) => {
+        const d = state.weeks[k].days[i];
+        if (h && !d.absence && !d.absHalf) Object.assign(d, h);
+      });
+    }
+  }
+  return hours.filter(Boolean).length;
+}
+
 /* ---------- Calculs ---------- */
 
 export const isReducedDay = (set, i) => set.is80Percent && set.reducedDay === i;
