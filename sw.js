@@ -1,8 +1,8 @@
 // Service worker : l'application fonctionne hors connexion.
 // Stratégie « réseau d'abord » : les mises à jour arrivent dès qu'on est en ligne,
 // la dernière version mise en cache sert hors connexion.
-const CACHE = 'horaires-v6';
-const ASSETS = ['./', 'index.html', 'style.css', 'app.js', 'calc.js', 'animations.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-180.png'];
+const CACHE = 'horaires-v7';
+const ASSETS = ['./', 'index.html', 'style.css', 'app.js', 'calc.js', 'animations.js', 'farces.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-180.png'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
