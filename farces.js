@@ -258,8 +258,12 @@ export function weekendPlane(message, card) {
   plane.className = 'weekendPlane';
   plane.innerHTML = PLANE_SVG + '<span class="rope"></span><span class="banner"></span>';
   plane.querySelector('.banner').textContent = message;
-  plane.style.top = Math.min(90, innerHeight * .12) + 'px';
   fxLayer().append(plane);
+  // L'avion survole la carte du vendredi (ou le haut de l'écran si elle n'est pas visible).
+  const r = card?.getBoundingClientRect(), h = plane.offsetHeight;
+  const onScreen = r && r.bottom > 0 && r.top < innerHeight;
+  const y = onScreen ? r.top + Math.min(r.height * .4, 70) - h / 2 : Math.min(90, innerHeight * .12);
+  plane.style.top = Math.max(8, Math.min(innerHeight - h - 8, y)) + 'px';
   const width = plane.offsetWidth, distance = innerWidth + width + 40, duration = Math.max(5200, distance * 7);
   // Le biplan entre par la droite, ondule et ressort par la gauche.
   const frames = [];
