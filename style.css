@@ -1,0 +1,190 @@
+/* Saisie horaires — thème floral vert, rose et soleil */
+
+:root {
+  --ink: #24382c;
+  --muted: #718075;
+  --bg: #fffaf0;
+  --card: #fffefa;
+  --green: #39864b;
+  --green-dark: #347746;
+  --line: #e3ebd7;
+  --orangeInk: #8a4b08;
+  --red: #b83c58;
+  --shadow: 0 7px 22px rgba(72, 105, 55, .09);
+}
+
+/* ---------- Base ---------- */
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+body {
+  margin: 0;
+  background: linear-gradient(180deg, #fff9ec 0%, #fffdf7 52%, #f5f9e9 100%);
+  color: var(--ink);
+  font: 16px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+button, input, select { font: inherit }
+button { cursor: pointer; border: 0; border-radius: 12px; padding: 11px 14px; font-weight: 650; background: #e8eee9; color: var(--ink) }
+button.primary { background: var(--green); color: #fff }
+button.outline { background: #fff; border: 1px solid #e1e9d9; color: #456c4d }
+button.small { padding: 7px 10px; font-size: 14px }
+.positive { color: #36854a !important }
+.negative { color: #bd4c65 !important }
+
+/* ---------- En-tête ---------- */
+header {
+  position: relative; overflow: hidden; color: #276b3d;
+  padding: 22px 18px 24px; border-bottom: 1px solid #e7edcf;
+  background:
+    radial-gradient(circle at 12% 28%, rgba(255, 207, 76, .22) 0 70px, transparent 71px),
+    radial-gradient(ellipse at 95% 0%, #d8edb1 0 18%, transparent 18.5%),
+    linear-gradient(135deg, #fff8e8 0%, #f1f8dc 55%, #fff0f1 100%);
+}
+header::before { content: "☀"; position: absolute; right: 5%; top: 2px; font-size: 76px; line-height: 1; color: #ffc83f; opacity: .9; transform: rotate(-10deg); pointer-events: none }
+header::after { content: "✿"; position: absolute; left: 4%; bottom: -20px; font-size: 78px; color: #f5a6b3; opacity: .35; pointer-events: none }
+header .wrap, main { max-width: 940px; margin: auto }
+header .wrap { position: relative; z-index: 1 }
+header .brand { font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: #4c9251; font-weight: 750 }
+h1 { margin: 4px 0; font-size: 34px; letter-spacing: -.045em; color: #28733f }
+header p { margin: 0; color: #72836e }
+.weeknav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 17px }
+.weeknav button { background: #e5f0d7; color: #347844; border: 1px solid #d5e6c5 }
+#settingsBtn { background: #fff0f2; color: #b84e70; border: 1px solid #f5d5dc; font-weight: 750 }
+.weeklabel { text-align: center; font-weight: 750; color: #356c43 }
+.weeklabel small { display: block; font-size: 12px; color: #84947d; font-weight: 500 }
+
+/* ---------- Cartes ---------- */
+main { padding: 18px 14px 48px }
+.stat, .panel, .day { background: var(--card); border: 1px solid var(--line); border-radius: 22px; box-shadow: var(--shadow) }
+
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px }
+.stat { padding: 15px 14px; cursor: pointer; transition: border-color .15s, transform .15s }
+.stat:nth-child(odd) { background: linear-gradient(145deg, #f0f8df, #fffefa) }
+.stat:nth-child(even) { background: linear-gradient(145deg, #fff0f2, #fffefa) }
+.stat:focus-visible { outline: 3px solid #75a98a; outline-offset: 2px }
+.stat[aria-expanded="true"] { border-color: #76ad69; box-shadow: 0 0 0 3px #76ad6920 }
+.stat .label { font-size: 12px; color: #68806a; font-weight: 750; text-transform: uppercase; letter-spacing: .04em }
+.stat strong { display: block; font-size: clamp(20px, 3.7vw, 27px); letter-spacing: -.04em; margin-top: 5px; color: var(--ink) }
+.stat small { color: var(--muted); font-size: 12px }
+
+.panel { padding: 17px; margin-bottom: 15px; background: rgba(255, 255, 251, .94) }
+.panelhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px }
+.panel h2 { font-size: 18px; margin: 0; color: var(--green-dark) }
+.subhead { font-size: 15px; margin: 18px 0 0; color: var(--green-dark) }
+.hint { font-size: 13px; color: #7a887b; margin: 5px 0 0 }
+.empty { color: var(--muted); font-size: 14px; padding: 8px 0 }
+.status { font-size: 12px; color: #7a887b; text-align: center; margin-top: 16px }
+
+.tabs { display: flex; gap: 8px; margin: 0 0 12px }
+.tabs button[aria-selected="true"] { background: var(--green); color: #fff }
+
+/* ---------- Champs ---------- */
+.field label { display: block; font-size: 12px; color: #718274; font-weight: 700; margin-bottom: 5px }
+.field input, .field select { width: 100%; min-height: 48px; border: 1px solid #dbe6d5; background: #fffefa; border-radius: 13px; padding: 10px 12px; color: #17251e; font-size: 16px }
+.field input:focus, .field select:focus { outline: 3px solid #a8d39a; outline-offset: 1px }
+.labelrow { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 5px; min-height: 18px }
+.labelrow label { margin: 0 }
+.now { padding: 0 6px; min-height: 18px; line-height: 18px; border-radius: 8px; font-size: 13px; background: #e5f0d7; color: var(--green-dark) }
+
+/* ---------- Journées ---------- */
+.days { display: grid; gap: 10px }
+.day { padding: 12px 14px; background: #fffefa }
+.daytop { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px }
+.dayname { font-weight: 800 }
+.daydate { font-size: 12px; color: var(--muted); margin-left: 7px; font-weight: 500 }
+.dayresult { font-weight: 800; font-variant-numeric: tabular-nums }
+.fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px }
+.daynote { font-size: 12px; color: #7a887b; margin-top: 9px }
+
+.actions { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 8px; margin-top: 10px }
+.actions .small { min-height: 48px; padding: 9px 16px; border-radius: 22px; font-size: 16px }
+.actions .absence { background: #ffe7c8; color: var(--orangeInk) }
+.actions .absenceHalf { background: #fff2b8; color: #756000 }
+.actions .usualButton { border: 1px solid #f4d6de; background: #fff0f2; color: #a94d69 }
+.dayworked { font-size: 16px; color: var(--muted); font-variant-numeric: tabular-nums; padding-left: 6px; white-space: nowrap }
+
+.day.today { border: 3px solid #64a85c; background: #f1f8e8; box-shadow: 0 0 0 3px #64a85c20 }
+.day.today .dayname, .day.today .daydate { color: var(--green-dark) }
+.day.today .daydate { font-weight: 800 }
+.day.absent { background: #fff4e4; border-color: #f1d8b1 }
+.day.absent .field input { background: #fffaf1 }
+.day.halfAbsent { background: #fff9df; border-color: #f0df9a }
+.day.halfAbsent .field input { background: #fffef5 }
+.day.reducedDay { background: #edf0ec; border-color: #d4dbd4; color: #69736d; box-shadow: none }
+.day.reducedDay .dayname, .day.reducedDay .daydate, .day.reducedDay .dayresult, .day.reducedDay .dayworked { color: #737d76 !important }
+.day.reducedDay .field input { background: #dfe3e0; color: #737d76; border-color: #cbd1cd }
+.day.reducedDay.today { border: 3px solid #aeb8b1; background: #e7eae8; box-shadow: none }
+
+/* ---------- Horaires habituels ---------- */
+.usualGrid { display: grid; gap: 10px }
+.usualRow { display: grid; grid-template-columns: 1fr repeat(3, minmax(0, 1fr)); gap: 10px; align-items: end; padding: 12px; border: 1px solid #e2ead9; border-radius: 16px; background: #fffefa }
+.usualDay { font-weight: 750; padding-bottom: 10px }
+
+/* ---------- Réglages ---------- */
+.settingsRows { display: grid; gap: 12px }
+.settingsDuration { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px }
+.settingsOptions { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: end }
+.settingsOptions .field, .settingsOptions select { min-width: 0 }
+.settingsCheck { display: flex; align-items: center; min-height: 48px }
+.settingsCheck label { display: flex; align-items: center; white-space: nowrap; font-weight: 700 }
+.settingsCheck input { width: auto; margin: 0 7px 0 0 }
+
+/* ---------- Régularisation et données ---------- */
+.adjustrow { display: grid; grid-template-columns: 1.3fr 1fr 1fr auto; gap: 10px; align-items: end; margin-top: 12px }
+.adjustrow button { height: 42px }
+.adjustments { margin-top: 12px; display: grid; gap: 7px }
+.adjustment { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; background: #f4f8ed; font-size: 14px }
+.adjustment.current { outline: 2px solid #a8d39a }
+.footer { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px }
+.footer button { flex: 1 }
+
+.panel.disclosure { padding: 0; overflow: hidden }
+.disclosure > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 17px; cursor: pointer; list-style: none }
+.disclosure > summary::-webkit-details-marker { display: none }
+.disclosure > summary::after { content: "＋"; font-size: 20px; color: #4d8b50; font-weight: 700 }
+.disclosure[open] > summary::after { content: "−" }
+.disclosure > summary h2 { margin: 0 }
+.disclosureBody { padding: 0 17px 17px }
+
+/* ---------- Messages ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 10;
+  display: flex; align-items: center; gap: 12px; width: max-content; max-width: calc(100% - 32px);
+  padding: 10px 10px 10px 16px; border-radius: 16px; background: #24382c; color: #fff; font-size: 14px;
+  box-shadow: 0 10px 30px rgba(36, 56, 44, .25);
+}
+.toast:not(:has(button)) { padding-right: 16px }
+.toast.error { background: #8f2f45 }
+.toast button { flex: none; background: #fff; color: #24382c }
+
+/* ---------- Écrans étroits ---------- */
+@media (max-width: 650px) {
+  header { padding: 18px 14px 20px }
+  header::before { right: 3%; top: 8px; font-size: 58px }
+  h1 { font-size: 30px }
+  .stat, .panel, .day { border-radius: 18px }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px }
+  .stat { padding: 12px }
+  .stat .label { font-size: 10px }
+  .stat strong { font-size: 23px }
+  .adjustrow { grid-template-columns: 1fr 1fr }
+  .adjustrow .field:first-child { grid-column: 1 / -1 }
+  .adjustrow button { width: 100% }
+}
+@media (max-width: 520px) {
+  .usualRow { grid-template-columns: 1fr 1fr }
+  .usualDay { grid-column: 1 / -1; padding-bottom: 0 }
+  .day { padding: 10px }
+  .actions { gap: 6px }
+  .dayworked { font-size: 14px; padding-left: 2px }
+  .actions .small { min-height: 42px; padding: 7px 9px; font-size: 13px }
+}
+@media (max-width: 420px) {
+  .fields { gap: 6px }
+  .panel { padding: 13px }
+  .daytop { align-items: flex-start }
+  .weeknav button { padding: 9px 10px }
+  .weeklabel { font-size: 13px }
+  .settingsRows { gap: 10px }
+  .settingsDuration, .settingsOptions { gap: 8px }
+  .settingsDuration .field input, .settingsOptions .field select { padding: 9px 7px; font-size: 14px }
+}
