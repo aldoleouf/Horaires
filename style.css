@@ -114,6 +114,12 @@ main { padding: 18px 14px 48px }
 .day.reducedDay .field input { background: #dfe3e0; color: #737d76; border-color: #cbd1cd }
 .day.reducedDay.today { border: 3px solid #aeb8b1; background: #e7eae8; box-shadow: none }
 
+.copyPanel { margin: -2px 0 14px; padding: 12px; border-radius: 16px; background: #f4f8ed }
+.copyPanel .hint:first-child { margin-top: 0 }
+.copyRow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 10px; align-items: end; margin-top: 10px }
+.copyRow button { min-height: 48px }
+.weeklabel .todayBtn { display: block; margin: 3px auto 0; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #fff; color: var(--green-dark); border: 1px solid #d5e6c5 }
+
 /* ---------- Horaires habituels ---------- */
 .usualGrid { display: grid; gap: 10px }
 .usualRow { display: grid; grid-template-columns: 1fr repeat(3, minmax(0, 1fr)); gap: 10px; align-items: end; padding: 12px; border: 1px solid #e2ead9; border-radius: 16px; background: #fffefa }
@@ -169,6 +175,9 @@ main { padding: 18px 14px 48px }
   .adjustrow { grid-template-columns: 1fr 1fr }
   .adjustrow .field:first-child { grid-column: 1 / -1 }
   .adjustrow button { width: 100% }
+  .copyRow { grid-template-columns: 1fr 1fr }
+  .copyRow .field:first-child { grid-column: 1 / -1 }
+  .copyRow:not(:has(#copyWeeksField:not([hidden]))) .field:first-child { grid-column: auto }
 }
 @media (max-width: 520px) {
   .usualRow { grid-template-columns: 1fr 1fr }

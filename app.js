@@ -2,7 +2,7 @@
 import {
   STORAGE_KEY, FIRST_WEEK, DAY_NAMES, isValidTime,
   mondayOf, keyDate, parseKey, addDays, fmtDate, fmtMinutes, fmtJhv, targetLabel, minutesToTime, timeToMinutes,
-  emptyState, normalizeState, settingsFor, setSettingsFrom, removeSettings,
+  emptyState, normalizeState, settingsFor, setSettingsFrom, removeSettings, copyWeekHours,
   isReducedDay, dayWorked, dayDelta, weekDelta, weekTarget, computeThrough
 } from './calc.js';
 
@@ -202,7 +202,10 @@ function render() {
   renderSettings(k, set);
 
   const friday = addDays(currentMonday, 4);
-  $('weekLabel').innerHTML = fmtDate(currentMonday) + ' – ' + fmtDate(friday) + '<small>' + (k === keyDate(mondayOf(new Date())) ? 'Semaine actuelle' : k) + '</small>';
+  $('weekLabel').innerHTML = fmtDate(currentMonday) + ' – ' + fmtDate(friday) + (k === keyDate(mondayOf(new Date()))
+    ? '<small>Semaine actuelle</small>'
+    : '<button type="button" class="todayBtn" id="todayBtn">↺ Aujourd’hui</button>');
+  renderCopyHint();
 
   const worked = w.days.reduce((s, d, i) => s + dayWorked(d, i, set), 0), bal = computeThrough(state, k);
   setBalance('weekBalance', weekDelta(state, k));
@@ -324,6 +327,54 @@ $('days').addEventListener('click', e => {
 $('prev').onclick = () => { currentMonday = addDays(currentMonday, -7); render(); };
 $('next').onclick = () => { currentMonday = addDays(currentMonday, 7); render(); };
 
+function scrollToToday() {
+  requestAnimationFrame(() => document.querySelector('.day.today')?.scrollIntoView({ block: 'center', behavior: 'instant' }));
+}
+$('weekLabel').addEventListener('click', e => {
+  if (!e.target.closest('#todayBtn')) return;
+  currentMonday = mondayOf(new Date());
+  activeTab = 'planning';
+  render();
+  $('next').focus();
+  scrollToToday();
+});
+
+/* Copie de la semaine affichée */
+function copyWeekCount() {
+  return Math.max(1, Math.min(52, Math.round(Number($('copyWeeks').value)) || 1));
+}
+function renderCopyHint() {
+  const future = $('copyTarget').value === 'future';
+  $('copyWeeksField').hidden = !future;
+  if (!future) {
+    $('copyHint').textContent = 'Les journées déjà saisies ne sont pas modifiées ; les nouvelles semaines utiliseront ces horaires.';
+    return;
+  }
+  const n = copyWeekCount(), first = addDays(currentMonday, 7), last = addDays(currentMonday, 7 * n + 4);
+  $('copyHint').textContent = 'Remplace les horaires du ' + fmtDate(first, true) + ' au ' + fmtDate(last, true) +
+    '. Les absences déjà posées et les régularisations sont conservées.';
+}
+$('copyWeekBtn').onclick = () => {
+  const open = $('copyPanel').hidden;
+  $('copyPanel').hidden = !open;
+  $('copyWeekBtn').setAttribute('aria-expanded', String(open));
+  renderCopyHint();
+};
+$('copyTarget').onchange = renderCopyHint;
+$('copyWeeks').oninput = renderCopyHint;
+$('copyApply').onclick = () => {
+  const destination = $('copyTarget').value, n = copyWeekCount();
+  let copied = 0;
+  withUndo(destination === 'usual'
+    ? 'Horaires de la semaine copiés dans les horaires habituels.'
+    : 'Horaires copiés sur ' + (n === 1 ? 'la semaine suivante.' : 'les ' + n + ' semaines suivantes.'), () => {
+    copied = copyWeekHours(state, currentKey(), destination, n);
+  });
+  if (!copied) toast('Aucune journée à copier : toute la semaine est en absence.', { error: true });
+  $('copyPanel').hidden = true;
+  $('copyWeekBtn').setAttribute('aria-expanded', 'false');
+};
+
 $('adjTarget').onchange = e => {
   const isJhv = e.target.value === 'jhv';
   $('adjHours').placeholder = isJhv ? 'Ex. 1 ou -0.5' : 'Ex. 2.25';
@@ -391,9 +442,7 @@ $('importFile').onchange = async e => {
 
 load();
 render();
-if ((new Date().getDay() + 6) % 7 < 5) {
-  requestAnimationFrame(() => document.querySelector('.day.today')?.scrollIntoView({ block: 'center', behavior: 'instant' }));
-}
+scrollToToday();
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
