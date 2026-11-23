@@ -10,7 +10,7 @@ import {
   petals, BUD_SVG, updateBud, WEATHER_HTML, updateWeather, ladybug
 } from './animations.js';
 import {
-  SHADES_HTML, ZZZ_HTML, magicHat, bee, ants, shakeFlowers,
+  SHADES_HTML, ZZZ_HTML, magicHat, bee, ants, shakeFlowers, weekendPlane,
   listenShake, motionNeedsPermission, requestMotionPermission, initSun
 } from './farces.js';
 
@@ -468,7 +468,17 @@ $('days').addEventListener('change', e => {
   // Journée qui gagne du temps en positif : une abeille en porte le pollen au permanent.
   const after = dayDelta(d, i, set);
   if (after > 0 && after > before) beeToPermanent($('days').children[i]);
+  if (i === 4 && el.dataset.field === 'end') wishGoodWeekend();
 });
+
+/** Heure de fin du vendredi modifiée : on souhaite un bon week-end, avec le bilan de la semaine. */
+function wishGoodWeekend() {
+  const wd = weekDelta(state, currentKey());
+  const message = 'Bon week-end ! ' + (wd > 0 ? '☀️ ' + fmtMinutes(wd) + ' cette semaine'
+    : wd < 0 ? '🌿 Reposez-vous bien' : '🌼 Semaine pile à l’heure');
+  if (motionOK()) weekendPlane(message, $('days').children[4]); // ne fait rien si l'avion vole déjà
+  else toast(message);
+}
 
 function beeToPermanent(card) {
   bee(card?.querySelector('.dayresult'), $('permanentBalance').closest('.stat').querySelector('.budWrap'));
@@ -518,6 +528,7 @@ $('days').addEventListener('click', e => {
         input.focus();
         if (motionOK()) input.classList.add('justSet');
         toast((field === 'start' ? 'Début' : 'Fin') + ' réglé sur ' + d[field] + '.');
+        if (i === 4 && field === 'end') wishGoodWeekend();
       });
       return;
     }
