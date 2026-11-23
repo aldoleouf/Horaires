@@ -56,6 +56,16 @@
     </div>
     <p class="hint">Les semaines antérieures conservent leurs réglages ; les soldes sont recalculés en conséquence.</p>
     <div class="actions"><button type="button" class="primary" id="saveSettings">Enregistrer les réglages</button><button type="button" class="outline" id="defaultSettings">Rétablir 7 h 42</button></div>
+    <h3 class="subhead">Lien avec l’app Congés</h3>
+    <div class="settingsCheck"><label for="isAldo"><input id="isAldo" type="checkbox"> Je suis Aldo</label></div>
+    <div id="aldoBox" hidden>
+      <p class="hint">Les journées et demi-journées posées dans l’app Congés (acceptées ou en attente) sont marquées automatiquement en absence. Activez le lien dans les réglages de l’app Congés, puis saisissez ici le code affiché.</p>
+      <div class="aldoRow">
+        <div class="field"><label for="aldoCode">Code de l’app Congés</label><input id="aldoCode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX"></div>
+        <button type="button" class="primary" id="aldoSync">Synchroniser</button>
+      </div>
+      <p class="hint" id="aldoStatus" aria-live="polite"></p>
+    </div>
     <h3 class="subhead">Historique des réglages</h3>
     <div id="settingsHistory" class="adjustments"></div>
   </section>

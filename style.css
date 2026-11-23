@@ -127,6 +127,10 @@ main { padding: 18px 14px 48px }
 .settingsCheck { display: flex; align-items: center; min-height: 48px }
 .settingsCheck label { display: flex; align-items: center; white-space: nowrap; font-weight: 700 }
 .settingsCheck input { width: auto; margin: 0 7px 0 0 }
+.aldoRow { display: flex; gap: 10px; align-items: flex-end; margin-top: 10px }
+.aldoRow .field { flex: 1; min-width: 0 }
+.aldoRow button { min-height: 48px }
+.daynote.conges { margin: 0 0 8px; color: var(--orangeInk); font-weight: 650 }
 
 /* ---------- Régularisation et données ---------- */
 .adjustrow { display: grid; grid-template-columns: 1.3fr 1fr 1fr auto; gap: 10px; align-items: end; margin-top: 12px }
