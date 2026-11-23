@@ -82,7 +82,19 @@
   </section>
 
   <section id="dayPanel" class="panel">
-    <div class="panelhead"><div><h2>Mes journées</h2></div></div>
+    <div class="panelhead">
+      <div><h2>Mes journées</h2></div>
+      <button type="button" class="outline small" id="copyWeekBtn" aria-expanded="false" aria-controls="copyPanel">Copier la semaine</button>
+    </div>
+    <div id="copyPanel" class="copyPanel" hidden>
+      <p class="hint">Copie le début, la fin et la pause de chaque journée de cette semaine. Les journées d’absence ne sont pas copiées.</p>
+      <div class="copyRow">
+        <div class="field"><label for="copyTarget">Copier vers</label><select id="copyTarget"><option value="usual">Les horaires habituels</option><option value="future">Les semaines suivantes</option></select></div>
+        <div class="field" id="copyWeeksField" hidden><label for="copyWeeks">Nombre de semaines</label><input id="copyWeeks" type="number" min="1" max="52" step="1" value="4"></div>
+        <button type="button" class="primary" id="copyApply">Copier</button>
+      </div>
+      <p class="hint" id="copyHint"></p>
+    </div>
     <div id="days" class="days"></div>
   </section>
 
