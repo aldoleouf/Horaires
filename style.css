@@ -75,9 +75,17 @@ main { padding: 18px 14px 48px }
 .jhvDay { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px; text-align: left; border-color: #c4e0f2 }
 .jhvDay span { font-size: 12px; font-weight: 500; color: var(--muted) }
 .jhvDay small { font-size: 12px; font-weight: 700; color: #2f6f96; font-variant-numeric: tabular-nums }
-.jhvDay:not(:disabled):hover { background: #e3f1fb }
+.jhvDay:not(:disabled):not([aria-pressed="true"]):hover { background: #e3f1fb }
 .jhvDay:disabled { opacity: .5; cursor: not-allowed }
 .jhvDay:disabled small { color: var(--muted) }
+.jhvDay[aria-pressed="true"] { background: #2f6f96; border-color: #2f6f96; color: #fff }
+.jhvDay[aria-pressed="true"] span, .jhvDay[aria-pressed="true"] small { color: #e3f1fb }
+.jhvDay.tooLate[aria-pressed="true"] { background: #b83c58; border-color: #b83c58 }
+.jhvWeeknav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px }
+.jhvWeekLabel { font-weight: 750; color: #2f6f96 }
+.jhvSummary { margin: 12px 0 10px; font-size: 14px; color: var(--ink) }
+#jhvGo { background: #2f6f96 }
+#jhvGo:disabled { opacity: .45; cursor: not-allowed }
 
 .panel { padding: 17px; margin-bottom: 15px; background: rgba(255, 255, 251, .94) }
 .panelhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px }

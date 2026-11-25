@@ -43,7 +43,14 @@
       <div><h2>Placer le temps du prochain JHV</h2><p class="hint" id="jhvPickerHint"></p></div>
       <button type="button" class="outline small" id="closeJhvPicker">Fermer</button>
     </div>
+    <div class="jhvWeeknav">
+      <button type="button" class="outline small" id="jhvPrev" aria-label="Semaine précédente">←</button>
+      <div class="jhvWeekLabel" id="jhvWeekLabel" aria-live="polite"></div>
+      <button type="button" class="outline small" id="jhvNext" aria-label="Semaine suivante">→</button>
+    </div>
     <div class="jhvDays" id="jhvDays"></div>
+    <p class="jhvSummary" id="jhvSummary" aria-live="polite"></p>
+    <button type="button" class="primary" id="jhvGo">🪣 Arroser ces journées</button>
   </section>
 
   <section id="settingsPanel" class="panel" hidden>

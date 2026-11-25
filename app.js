@@ -412,44 +412,112 @@ function jhvNeed(k) {
 }
 
 let jhvPickerOpen = false, jhvPlacing = false;
+let pickerMonday = currentMonday;
+let jhvSelection = []; // journées choisies : { k: clé de la semaine, i: jour }
+
+const selKey = s => s.k + '|' + s.i;
+const sortSelection = () => jhvSelection.sort((a, b) => a.k < b.k ? -1 : a.k > b.k ? 1 : a.i - b.i);
 
 function setJhvPicker(open) {
   jhvPickerOpen = open;
+  if (open) { pickerMonday = currentMonday; jhvSelection = []; }
   $('jhvPlace').setAttribute('aria-expanded', String(open));
   render();
   if (open) $('jhvPicker').scrollIntoView({ block: 'nearest', behavior: motionOK() ? 'smooth' : 'instant' });
 }
 
+/** Parts égales (à la minute près) d'un total réparti sur `n` journées. */
+function shares(total, n) {
+  const base = Math.floor(total / n), extra = total % n;
+  return Array.from({ length: n }, (_, j) => base + (j < extra ? 1 : 0));
+}
+
+/** Copie de l'état où chaque journée choisie reçoit sa part de `total` sur son heure de fin. */
+function withShares(sel, total) {
+  const copy = structuredClone(state), parts = shares(total, sel.length);
+  sel.forEach((s, j) => {
+    const d = copy.weeks[s.k].days[s.i];
+    // Plafonné à 23:59 : au-delà, l'heure reviendrait au matin. Le plan signale ce dépassement.
+    d.end = minutesToTime(Math.min(1439, timeToMinutes(d.end) + parts[j]));
+  });
+  return copy;
+}
+
+/**
+ * Plus petit total qui, réparti à parts égales sur les journées choisies, donne un JHV
+ * de plus à la dernière semaine concernée (le cumul se remplit d'abord, semaine après
+ * semaine, puis le permanent). Renvoie null si c'est impossible.
+ */
+function jhvPlan(sel) {
+  if (!sel.length) return null;
+  const last = sel[sel.length - 1].k, goal = computeThrough(state, last).jhv + 1;
+  const reaches = t => computeThrough(withShares(sel, t), last).jhv >= goal;
+  let lo = 1, hi = 1440 * sel.length;
+  if (!reaches(hi)) return null;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (reaches(mid)) hi = mid; else lo = mid + 1; }
+  const parts = shares(lo, sel.length);
+  const days = sel.map((s, j) => {
+    const d = state.weeks[s.k].days[s.i], from = d.end, end = timeToMinutes(from) + parts[j];
+    return { ...s, add: parts[j], from, to: minutesToTime(end), ok: end <= 1439 && timeToMinutes(from) > timeToMinutes(d.start) };
+  });
+  return { total: lo, days, ok: days.every(x => x.ok) };
+}
+
+const dayShort = s => DAY_NAMES[s.i].toLowerCase() + ' ' + fmtDate(addDays(parseKey(s.k), s.i));
+
 function renderJhvPicker(k, set, need) {
   $('jhvPicker').hidden = !jhvPickerOpen || activeTab !== 'planning';
   $('jhvPlace').disabled = jhvPlacing;
   if (!jhvPickerOpen) return;
-  const needText = fmtMinutes(need).replace('+', '');
-  $('jhvPickerHint').textContent = 'Choisissez la journée dont l’heure de fin recevra les ' + needText + ' nécessaires (semaine du ' + fmtDate(currentMonday) + ').';
-  $('jhvDays').innerHTML = ensureWeek(k).days.map((d, i) => {
-    const start = timeToMinutes(d.start), end = timeToMinutes(d.end), newEnd = end + need;
-    const reason = isReducedDay(set, i) ? 'Non travaillé' : d.absence ? 'Absence'
-      : end <= start || newEnd > 1439 ? 'Dépasserait minuit' : '';
-    return '<button type="button" class="outline jhvDay" data-jhv-day="' + i + '"' + (reason || jhvPlacing ? ' disabled' : '') + '>' +
-      '<b>' + DAY_NAMES[i] + '</b><span>' + fmtDate(addDays(currentMonday, i)) + '</span>' +
-      '<small>' + (reason || 'Fin ' + d.end + ' → ' + minutesToTime(newEnd)) + '</small></button>';
+  $('jhvPickerHint').textContent = 'Choisissez une ou plusieurs journées, sur une ou plusieurs semaines : le temps nécessaire est réparti à parts égales sur leur heure de fin. Pour cette semaine seule, il faut ' + fmtMinutes(need).replace('+', '') + '.';
+  const pk = keyDate(pickerMonday), pset = settingsFor(state, pk);
+  $('jhvWeekLabel').textContent = fmtDate(pickerMonday) + ' – ' + fmtDate(addDays(pickerMonday, 4));
+  const plan = jhvPlan(jhvSelection), byKey = new Map((plan?.days || []).map(x => [selKey(x), x]));
+  $('jhvDays').innerHTML = ensureWeek(pk).days.map((d, i) => {
+    const s = byKey.get(pk + '|' + i), chosen = jhvSelection.some(x => x.k === pk && x.i === i);
+    const reason = isReducedDay(pset, i) ? 'Non travaillé' : d.absence ? (d.ferie ? 'Férié' : 'Absence')
+      : timeToMinutes(d.end) <= timeToMinutes(d.start) ? 'Fin avant le début' : '';
+    const text = reason || (s ? (s.ok ? 'Fin ' + s.from + ' → ' + s.to : 'Dépasserait minuit') : 'Fin ' + d.end);
+    return '<button type="button" class="outline jhvDay' + (s && !s.ok ? ' tooLate' : '') + '" data-jhv-day="' + i + '" aria-pressed="' + chosen + '"' + (reason || jhvPlacing ? ' disabled' : '') + '>' +
+      '<b>' + DAY_NAMES[i] + '</b><span>' + fmtDate(addDays(pickerMonday, i)) + '</span><small>' + text + '</small></button>';
   }).join('');
+  const n = jhvSelection.length;
+  let summary;
+  if (!n) summary = 'Aucune journée choisie.';
+  else if (!plan) summary = 'Impossible d’atteindre un JHV avec ces journées.';
+  else {
+    const parts = [...new Set(plan.days.map(x => x.add))].map(m => fmtMinutes(m).replace('+', ''));
+    summary = n + (n > 1 ? ' journées : ' : ' journée : ') + plan.days.map(dayShort).join(', ') + ' · ' +
+      (n > 1 ? parts.join(' ou ') + ' chacune, soit ' : '') + fmtMinutes(plan.total).replace('+', '') + ' au total.' +
+      (plan.ok ? '' : ' Une journée dépasserait minuit : ajoutez-en d’autres.');
+  }
+  $('jhvSummary').textContent = summary;
+  $('jhvGo').disabled = !plan || !plan.ok || jhvPlacing;
 }
 
-/** Ajoute le temps du prochain JHV à la fin de la journée `i`, avec le seau d'eau. */
-async function placeJhv(i) {
-  if (jhvPlacing) return;
-  const k = currentKey(), d = ensureWeek(k).days[i], need = jhvNeed(k);
-  const from = d.end, to = minutesToTime(timeToMinutes(from) + need);
+/** Arrose une à une les journées choisies : le seau y ajoute leur part du temps du prochain JHV. */
+async function placeJhv() {
+  const plan = jhvPlan(jhvSelection);
+  if (jhvPlacing || !plan || !plan.ok) return;
+  const snapshot = JSON.stringify(state), back = currentMonday;
   jhvPlacing = true;
   jhvPickerOpen = false;
   $('jhvPlace').setAttribute('aria-expanded', 'false');
-  render();
-  const input = $('day' + i + '-end');
-  await waterBucket($('permanentBalance').closest('.stat'), input, () => countUpTime(input, from, to));
+  for (const x of plan.days) {
+    if (keyDate(currentMonday) !== x.k) currentMonday = parseKey(x.k); // la journée est sur une autre semaine
+    render();
+    const input = $('day' + x.i + '-end');
+    await waterBucket($('permanentBalance').closest('.stat'), input, () => countUpTime(input, x.from, x.to));
+    state.weeks[x.k].days[x.i].end = x.to;
+    render();
+  }
   jhvPlacing = false;
-  withUndo('+' + fmtMinutes(need).replace('+', '') + ' sur la fin de ' + DAY_NAMES[i].toLowerCase() + ' (' + from + ' → ' + to + ') : un JHV de plus !', () => { d.end = to; });
-  if (i === 4 && k === currentKey()) setTimeout(wishGoodWeekend, 2200);
+  render();
+  const total = fmtMinutes(plan.total).replace('+', '');
+  const message = plan.days.length === 1
+    ? '+' + total + ' sur la fin de ' + dayShort(plan.days[0]) + ' (' + plan.days[0].from + ' → ' + plan.days[0].to + ') : un JHV de plus !'
+    : '+' + total + ' répartis sur ' + plan.days.length + ' journées : un JHV de plus !';
+  toast(message, { action: 'Annuler', onAction: () => { state = normalizeState(JSON.parse(snapshot)); currentMonday = back; cascadeNext = true; render(); } });
 }
 
 /** Fait défiler l'heure affichée dans `input` de `from` à `to`. */
@@ -471,8 +539,14 @@ $('jhvPlace').addEventListener('click', e => { e.stopPropagation(); setJhvPicker
 $('closeJhvPicker').onclick = () => setJhvPicker(false);
 $('jhvDays').addEventListener('click', e => {
   const b = e.target.closest('[data-jhv-day]');
-  if (b && !b.disabled) placeJhv(Number(b.dataset.jhvDay));
+  if (!b || b.disabled) return;
+  const k = keyDate(pickerMonday), i = Number(b.dataset.jhvDay), j = jhvSelection.findIndex(x => x.k === k && x.i === i);
+  if (j >= 0) jhvSelection.splice(j, 1); else { jhvSelection.push({ k, i }); sortSelection(); }
+  render();
 });
+$('jhvPrev').onclick = () => { pickerMonday = addDays(pickerMonday, -7); render(); };
+$('jhvNext').onclick = () => { pickerMonday = addDays(pickerMonday, 7); render(); };
+$('jhvGo').onclick = placeJhv;
 
 /* ---------- Événements ---------- */
 
