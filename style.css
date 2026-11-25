@@ -149,6 +149,7 @@ main { padding: 18px 14px 48px }
 .aldoRow { display: flex; gap: 10px; align-items: flex-end; margin-top: 10px }
 .aldoRow .field { flex: 1; min-width: 0 }
 .aldoRow button { min-height: 48px }
+.daynote.ferie { margin: 0 0 8px; color: #b84e70; font-weight: 650 }
 .daynote.conges { margin: 0 0 8px; color: var(--orangeInk); font-weight: 650 }
 
 /* ---------- Régularisation et données ---------- */
