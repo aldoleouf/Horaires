@@ -1,6 +1,6 @@
 // Interface de saisie : rendu, événements, sauvegarde locale.
 import {
-  STORAGE_KEY, FIRST_WEEK, DAY_NAMES, isValidTime,
+  STORAGE_KEY, FIRST_WEEK, DAY_NAMES, CUMUL_CAP, isValidTime,
   mondayOf, keyDate, parseKey, addDays, fmtDate, fmtMinutes, fmtJhv, targetLabel, minutesToTime, timeToMinutes,
   emptyState, normalizeState, settingsFor, setSettingsFrom, removeSettings, copyWeekHours,
   isReducedDay, dayWorked, dayDelta, weekDelta, weekTarget, computeThrough, congesDays
@@ -10,7 +10,7 @@ import {
   petals, BUD_SVG, updateBud, WEATHER_HTML, updateWeather, ladybug
 } from './animations.js';
 import {
-  SHADES_HTML, ZZZ_HTML, magicHat, bee, ants, shakeFlowers, weekendPlane,
+  SHADES_HTML, ZZZ_HTML, magicHat, bee, ants, shakeFlowers, weekendPlane, waterBucket,
   listenShake, motionNeedsPermission, requestMotionPermission, initSun
 } from './farces.js';
 
@@ -360,24 +360,102 @@ function render() {
   setBalance('jhvBalance', bal.jhv, fmtJhv(bal.jhv), prev.jhv);
   updateBud($('permanentBalance').closest('.stat'), bal.permanent / set.targetMinutes, prev.jhv !== undefined && bal.jhv > prev.jhv);
   lastShown = { k, week: wd, cumul: bal.cumul, permanent: bal.permanent, jhv: bal.jhv };
-  $('detail-permanent').textContent = 'Converti en JHV par tranche de ' + targetLabel(set.targetMinutes);
+  $('permUnit').textContent = 'Converti en JHV par tranche de ' + targetLabel(set.targetMinutes);
   $('detail-jhv').textContent = 'Journées de ' + targetLabel(set.targetMinutes);
+  const need = jhvNeed(k), toCumul = Math.max(0, CUMUL_CAP - bal.cumul);
+  $('jhvNeed').textContent = 'Encore ' + fmtMinutes(need).replace('+', '') + ' pour le prochain JHV' +
+    (toCumul ? ' (dont ' + fmtMinutes(toCumul).replace('+', '') + ' pour remplir le cumul)' : '');
+  renderJhvPicker(k, set, need);
 
   renderDays(w, set);
   renderAdjustments(k);
   save();
 }
 
+/* ---------- Temps restant pour le prochain JHV ---------- */
+// Le temps ajouté à une journée remplit d'abord le cumul jusqu'à son plafond,
+// puis le permanent, qui donne un JHV à chaque tranche d'une journée théorique.
+
+function jhvNeed(k) {
+  const bal = computeThrough(state, k);
+  return Math.max(0, CUMUL_CAP - bal.cumul) + settingsFor(state, k).targetMinutes - bal.permanent;
+}
+
+let jhvPickerOpen = false, jhvPlacing = false;
+
+function setJhvPicker(open) {
+  jhvPickerOpen = open;
+  $('jhvPlace').setAttribute('aria-expanded', String(open));
+  render();
+  if (open) $('jhvPicker').scrollIntoView({ block: 'nearest', behavior: motionOK() ? 'smooth' : 'instant' });
+}
+
+function renderJhvPicker(k, set, need) {
+  $('jhvPicker').hidden = !jhvPickerOpen || activeTab !== 'planning';
+  $('jhvPlace').disabled = jhvPlacing;
+  if (!jhvPickerOpen) return;
+  const needText = fmtMinutes(need).replace('+', '');
+  $('jhvPickerHint').textContent = 'Choisissez la journée dont l’heure de fin recevra les ' + needText + ' nécessaires (semaine du ' + fmtDate(currentMonday) + ').';
+  $('jhvDays').innerHTML = ensureWeek(k).days.map((d, i) => {
+    const start = timeToMinutes(d.start), end = timeToMinutes(d.end), newEnd = end + need;
+    const reason = isReducedDay(set, i) ? 'Non travaillé' : d.absence ? 'Absence'
+      : end <= start || newEnd > 1439 ? 'Dépasserait minuit' : '';
+    return '<button type="button" class="outline jhvDay" data-jhv-day="' + i + '"' + (reason || jhvPlacing ? ' disabled' : '') + '>' +
+      '<b>' + DAY_NAMES[i] + '</b><span>' + fmtDate(addDays(currentMonday, i)) + '</span>' +
+      '<small>' + (reason || 'Fin ' + d.end + ' → ' + minutesToTime(newEnd)) + '</small></button>';
+  }).join('');
+}
+
+/** Ajoute le temps du prochain JHV à la fin de la journée `i`, avec le seau d'eau. */
+async function placeJhv(i) {
+  if (jhvPlacing) return;
+  const k = currentKey(), d = ensureWeek(k).days[i], need = jhvNeed(k);
+  const from = d.end, to = minutesToTime(timeToMinutes(from) + need);
+  jhvPlacing = true;
+  jhvPickerOpen = false;
+  $('jhvPlace').setAttribute('aria-expanded', 'false');
+  render();
+  const input = $('day' + i + '-end');
+  await waterBucket($('permanentBalance').closest('.stat'), input, () => countUpTime(input, from, to));
+  jhvPlacing = false;
+  withUndo('+' + fmtMinutes(need).replace('+', '') + ' sur la fin de ' + DAY_NAMES[i].toLowerCase() + ' (' + from + ' → ' + to + ') : un JHV de plus !', () => { d.end = to; });
+  if (i === 4 && k === currentKey()) setTimeout(wishGoodWeekend, 2200);
+}
+
+/** Fait défiler l'heure affichée dans `input` de `from` à `to`. */
+function countUpTime(input, from, to) {
+  const a = timeToMinutes(from), b = timeToMinutes(to);
+  if (!motionOK() || !input.isConnected) return;
+  return new Promise(resolve => {
+    const t0 = performance.now(), duration = 1100;
+    const step = now => {
+      const t = Math.min(1, (now - t0) / duration);
+      input.value = minutesToTime(a + (b - a) * (1 - (1 - t) ** 3));
+      if (t < 1) requestAnimationFrame(step); else resolve();
+    };
+    requestAnimationFrame(step);
+  });
+}
+
+$('jhvPlace').addEventListener('click', e => { e.stopPropagation(); setJhvPicker(!jhvPickerOpen); });
+$('closeJhvPicker').onclick = () => setJhvPicker(false);
+$('jhvDays').addEventListener('click', e => {
+  const b = e.target.closest('[data-jhv-day]');
+  if (b && !b.disabled) placeJhv(Number(b.dataset.jhvDay));
+});
+
 /* ---------- Événements ---------- */
 
 document.querySelectorAll('.stat[role="button"]').forEach(card => {
-  const toggle = () => {
+  const toggle = e => {
+    if (e.target.closest('button')) return; // bouton placé dans le détail
+
     const detail = card.querySelector('small'), expanded = card.getAttribute('aria-expanded') === 'true';
     card.setAttribute('aria-expanded', String(!expanded));
     if (detail) detail.hidden = expanded;
   };
   card.addEventListener('click', toggle);
-  card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+  card.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('button')) { e.preventDefault(); toggle(e); } });
 });
 
 $('settingsBtn').onclick = () => { activeTab = activeTab === 'settings' ? 'planning' : 'settings'; render(); };
