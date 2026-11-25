@@ -285,3 +285,108 @@ export function weekendPlane(message, card) {
   }, duration * (innerWidth / 2 + width * .6) / distance);
   return true;
 }
+
+/* ---------- Seau d'eau qui arrose l'heure de fin pour faire pousser un JHV ---------- */
+
+const BUCKET_SVG = `<svg viewBox="0 0 48 44" aria-hidden="true">
+  <path d="M8 14C8-2 40-2 40 14" stroke="#7d8a92" stroke-width="2.4" fill="none"/>
+  <path d="M6 14h36l-4 27a3 3 0 0 1-3 2.5H13a3 3 0 0 1-3-2.5z" fill="#a9cbe0"/>
+  <path d="M6 14h36l-.8 5H6.8z" fill="#86b1ca"/>
+  <ellipse cx="24" cy="14" rx="18" ry="4" fill="#5fb4e6"/>
+  <ellipse cx="24" cy="14" rx="18" ry="4" fill="none" stroke="#6f93a8" stroke-width="2"/>
+  <path d="M11 25h26M12.5 34h23" stroke="#8fb5cb" stroke-width="1.6"/>
+  <circle cx="7" cy="15" r="1.8" fill="#6f93a8"/><circle cx="41" cy="15" r="1.8" fill="#6f93a8"/>
+  <path d="M31 21c2 .5 3 4.5 2.4 9" stroke="#fff" stroke-width="2" opacity=".55" fill="none" stroke-linecap="round"/>
+</svg>`;
+
+const TILT = -75; // inclinaison du seau pendant l'arrosage (degrés)
+const frame = () => new Promise(r => requestAnimationFrame(r));
+const easeInOut = t => t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+
+let bucketBusy = false;
+/**
+ * Un seau d'eau part de `fromEl`, file vers le champ `targetEl` (la page défile jusqu'à
+ * sa journée), puis l'arrose. `onPour()` est appelé pendant l'arrosage et peut renvoyer
+ * une promesse ; le seau repart une fois l'arrosage et `onPour` terminés.
+ */
+export async function waterBucket(fromEl, targetEl, onPour) {
+  if (!motionOK() || bucketBusy || !targetEl) { await onPour(); return; }
+  bucketBusy = true;
+  const a = fromEl.getBoundingClientRect();
+  const start = {
+    x: Math.max(30, Math.min(innerWidth - 30, a.left + a.width / 2)),
+    y: Math.max(30, Math.min(innerHeight - 30, a.top + a.height / 2))
+  };
+  const el = document.createElement('span');
+  el.className = 'bucket';
+  el.innerHTML = '<span class="pail">' + BUCKET_SVG + '</span>';
+  fxLayer().append(el);
+  const pail = el.firstChild;
+  const place = (x, y) => { el.style.transform = `translate(${x - 24}px, ${y - 22}px)`; };
+  // Position du seau pour que son bec, une fois incliné, tombe au-dessus du champ.
+  const pourPos = () => {
+    const r = targetEl.getBoundingClientRect();
+    return { x: r.left + r.width / 2 + 20, y: r.top - 38 };
+  };
+  place(start.x, start.y);
+  targetEl.closest('.day')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+
+  // 1. Le seau apparaît puis vole en arc vers la journée, en suivant le défilement.
+  const pop = pail.animate([{ transform: 'scale(.2)', opacity: 0 }, { transform: 'scale(1.15)', opacity: 1 }, { transform: 'scale(1)' }], { duration: 380, easing: 'ease-out', fill: 'forwards' });
+  await pop.finished;
+  pop.cancel(); // laisse la main au style en ligne pendant le vol
+  const duration = 1500, t0 = performance.now();
+  for (let t = 0; t < 1;) {
+    await frame();
+    t = Math.min(1, (performance.now() - t0) / duration);
+    const e = easeInOut(t), p = pourPos();
+    place(start.x + (p.x - start.x) * e, start.y + (p.y - start.y) * e - Math.sin(Math.PI * t) * 70);
+    pail.style.transform = `rotate(${Math.sin(t * Math.PI * 4) * 9 * (1 - t)}deg)`;
+  }
+
+  // 2. Il s'incline et arrose l'heure de fin.
+  await pail.animate([{ transform: 'rotate(0)' }, { transform: `rotate(${TILT}deg)` }], { duration: 420, easing: 'ease-in-out', fill: 'forwards' }).finished;
+  targetEl.classList.add('watered');
+  let pouring = true;
+  const follow = (async () => {
+    let lastDrop = 0;
+    while (pouring) {
+      await frame();
+      const p = pourPos();
+      place(p.x, p.y);
+      const now = performance.now();
+      if (now - lastDrop > 38) { lastDrop = now; drop(p, targetEl.getBoundingClientRect()); }
+    }
+  })();
+  await Promise.all([wait(1300), Promise.resolve(onPour())]);
+  pouring = false;
+  await follow;
+  setTimeout(() => targetEl.classList.remove('watered'), 900);
+
+  // 3. Il se redresse et s'envole.
+  const p = pourPos();
+  await pail.animate([{ transform: `rotate(${TILT}deg)` }, { transform: 'rotate(10deg)' }], { duration: 380, easing: 'ease-out', fill: 'forwards' }).finished;
+  await el.animate([
+    { transform: `translate(${p.x - 24}px, ${p.y - 22}px)`, opacity: 1 },
+    { transform: `translate(${p.x + 90}px, ${p.y - 160}px) scale(.5)`, opacity: 0 }
+  ], { duration: 700, easing: 'ease-in', fill: 'forwards' }).finished;
+  el.remove();
+  bucketBusy = false;
+}
+
+/** Une goutte quitte le bec du seau (placé en `p`) et éclabousse le champ `r`. */
+function drop(p, r) {
+  // Bec du seau incliné : environ 12 px à gauche et 15 px sous son centre.
+  const x0 = p.x - 12 + rand(-2, 2), y0 = p.y + 15;
+  const x1 = rand(r.left + r.width * .25, r.left + r.width * .75), y1 = r.top + rand(4, r.height * .6);
+  const d = document.createElement('span');
+  d.className = 'waterDrop';
+  d.style.left = x0 + 'px';
+  d.style.top = y0 + 'px';
+  fxLayer().append(d);
+  d.animate([
+    { transform: 'translate(-50%, -50%) scale(.6)', opacity: .9 },
+    { transform: `translate(calc(-50% + ${x1 - x0}px), calc(-50% + ${y1 - y0}px)) scale(1, 1.3)`, opacity: 1, offset: .85 },
+    { transform: `translate(calc(-50% + ${x1 - x0 + rand(-10, 10)}px), calc(-50% + ${y1 - y0 - 4}px)) scale(1.8, .3)`, opacity: 0 }
+  ], { duration: rand(380, 520), easing: 'cubic-bezier(.5, 0, 1, 1)', fill: 'forwards' }).onfinish = () => d.remove();
+}
