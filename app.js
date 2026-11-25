@@ -3,7 +3,7 @@ import {
   STORAGE_KEY, FIRST_WEEK, DAY_NAMES, CUMUL_CAP, isValidTime,
   mondayOf, keyDate, parseKey, addDays, fmtDate, fmtMinutes, fmtJhv, targetLabel, minutesToTime, timeToMinutes,
   emptyState, normalizeState, settingsFor, setSettingsFrom, removeSettings, copyWeekHours,
-  isReducedDay, dayWorked, dayDelta, weekDelta, weekTarget, computeThrough, congesDays
+  isReducedDay, dayWorked, dayDelta, weekDelta, weekTarget, computeThrough, congesDays, ferieName
 } from './calc.js';
 import {
   motionOK, systemReducesMotion, animationsEnabled, setAnimations,
@@ -91,9 +91,38 @@ function freshDay(i) { return { ...state.usualHours[i], absence: false, absHalf:
 function ensureWeek(k) {
   if (!state.weeks[k]) {
     state.weeks[k] = { days: [0, 1, 2, 3, 4].map(freshDay) };
+    applyFeriesToWeek(k);
     applyCongesToWeek(k);
   }
   return state.weeks[k];
+}
+
+/** Journée d'absence complète : mêmes horaires que le bouton « Abs ». */
+function setAbsence(d, set) {
+  d.absence = true;
+  d.absHalf = false;
+  d.start = '07:00';
+  d.end = minutesToTime(set.targetMinutes / 2);
+  d.break = 0;
+}
+
+/* ---------- Jours fériés ---------- */
+// Posés automatiquement en journée d'absence (`ferie: true`) à la création d'une semaine,
+// et sur les semaines déjà saisies à partir de la semaine en cours. Les semaines passées
+// déjà remplies ne sont pas modifiées. Si l'absence est annulée, `ferieOff` l'empêche de revenir.
+
+function applyFeriesToWeek(k) {
+  const monday = parseKey(k), set = settingsFor(state, k);
+  state.weeks[k].days.forEach((d, i) => {
+    if (d.ferie || d.ferieOff || d.absence || isReducedDay(set, i) || !ferieName(keyDate(addDays(monday, i)))) return;
+    setAbsence(d, set);
+    d.ferie = true;
+  });
+}
+
+function applyFeries() {
+  const from = keyDate(mondayOf(new Date()));
+  for (const k of Object.keys(state.weeks)) if (k >= from) applyFeriesToWeek(k);
 }
 
 /* ---------- Lien avec l'app Congés (« Je suis Aldo ») ---------- */
@@ -258,7 +287,8 @@ function renderDays(w, set) {
     let actions;
     if (off) actions = '<div class="daynote">Journée non travaillée · 80 %</div>';
     else {
-      actions = (d.conges ? '<div class="daynote conges">🌴 ' + (d.conges === 'half' ? 'Demi-journée de congé' : 'Congé') + ' · app Congés</div>' : '') +
+      const ferie = d.ferie ? ferieName(keyDate(date)) : '';
+      actions = (ferie ? '<div class="daynote ferie">🎉 Jour férié · ' + ferie + '</div>' : '') + (d.conges ? '<div class="daynote conges">🌴 ' + (d.conges === 'half' ? 'Demi-journée de congé' : 'Congé') + ' · app Congés</div>' : '') +
         '<div class="actions"><div class="dayworked">' + fmtMinutes(dayWorked(d, i, set)) + ' / ' + targetLabel(set.targetMinutes) + '</div>' +
         (d.absence || d.absHalf
           ? '<button type="button" class="small absence" data-action="cancelAbsence" data-i="' + i + '">Annuler absence</button>'
@@ -568,11 +598,7 @@ $('days').addEventListener('click', e => {
   const i = Number(b.dataset.i), d = ensureWeek(currentKey()).days[i], set = settingsFor(state, currentKey());
   switch (b.dataset.action) {
     case 'absence':
-      d.absence = true;
-      d.absHalf = false;
-      d.start = '07:00';
-      d.end = minutesToTime(set.targetMinutes / 2);
-      d.break = 0;
+      setAbsence(d, set);
       break;
     case 'absenceHalf':
       d.absHalf = true;
@@ -583,6 +609,12 @@ $('days').addEventListener('click', e => {
         aldo.dismissed.push(keyDate(addDays(currentMonday, i)) + '|' + d.conges);
         saveAldo();
         delete d.conges;
+      }
+      if (d.ferie) {
+        // Férié travaillé : on reprend les horaires habituels et il ne sera plus reposé.
+        Object.assign(d, freshDay(i));
+        delete d.ferie;
+        d.ferieOff = true;
       }
       d.absence = false;
       d.absHalf = false;
@@ -663,6 +695,7 @@ $('copyApply').onclick = () => {
     ? 'Horaires de la semaine copiés dans les horaires habituels.'
     : 'Horaires copiés sur ' + (n === 1 ? 'la semaine suivante.' : 'les ' + n + ' semaines suivantes.'), () => {
     copied = copyWeekHours(state, currentKey(), destination, n);
+    applyFeries(); // semaines créées par la copie
   });
   if (!copied) toast('Aucune journée à copier : toute la semaine est en absence.', { error: true });
   $('copyPanel').hidden = true;
@@ -737,7 +770,7 @@ $('importFile').onchange = async e => {
     toast('Fichier invalide ou format non reconnu.', { error: true });
     return;
   }
-  withUndo('Sauvegarde importée : les données précédentes ont été remplacées.', () => { state = imported; applyConges(); });
+  withUndo('Sauvegarde importée : les données précédentes ont été remplacées.', () => { state = imported; applyFeries(); applyConges(); });
 };
 
 /* ---------- Démarrage ---------- */
@@ -749,6 +782,7 @@ initSun($('sunDeco'));
 listenShake(shakeFlowers);
 
 load();
+applyFeries();
 if (aldo.enabled) applyConges();
 render();
 syncConges();
