@@ -360,8 +360,8 @@ function render() {
   setBalance('jhvBalance', bal.jhv, fmtJhv(bal.jhv), prev.jhv);
   updateBud($('permanentBalance').closest('.stat'), bal.permanent / set.targetMinutes, prev.jhv !== undefined && bal.jhv > prev.jhv);
   lastShown = { k, week: wd, cumul: bal.cumul, permanent: bal.permanent, jhv: bal.jhv };
-  $('detail-permanent').textContent = 'Converti en JHV par tranche de ' + targetLabel(set.targetMinutes);
-  $('jhvUnit').textContent = 'Journées de ' + targetLabel(set.targetMinutes);
+  $('permUnit').textContent = 'Converti en JHV par tranche de ' + targetLabel(set.targetMinutes);
+  $('detail-jhv').textContent = 'Journées de ' + targetLabel(set.targetMinutes);
   const need = jhvNeed(k), toCumul = Math.max(0, CUMUL_CAP - bal.cumul);
   $('jhvNeed').textContent = 'Encore ' + fmtMinutes(need).replace('+', '') + ' pour le prochain JHV' +
     (toCumul ? ' (dont ' + fmtMinutes(toCumul).replace('+', '') + ' pour remplir le cumul)' : '');
@@ -416,7 +416,7 @@ async function placeJhv(i) {
   $('jhvPlace').setAttribute('aria-expanded', 'false');
   render();
   const input = $('day' + i + '-end');
-  await waterBucket($('jhvBalance').closest('.stat'), input, () => countUpTime(input, from, to));
+  await waterBucket($('permanentBalance').closest('.stat'), input, () => countUpTime(input, from, to));
   jhvPlacing = false;
   withUndo('+' + fmtMinutes(need).replace('+', '') + ' sur la fin de ' + DAY_NAMES[i].toLowerCase() + ' (' + from + ' → ' + to + ') : un JHV de plus !', () => { d.end = to; });
   if (i === 4 && k === currentKey()) setTimeout(wishGoodWeekend, 2200);
